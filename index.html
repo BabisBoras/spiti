@@ -2,81 +2,95 @@
 <html lang="el">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1a1a1a">
 <title>3D Διαμέρισμα</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
 <style>
-body{margin:0;padding:12px;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:#f5f3ef;color:#2c2c2a;}
-button{font:inherit;font-size:14px;padding:8px 12px;border:1px solid #c9c4bb;border-radius:8px;background:#fff;color:#2c2c2a;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:6px;}
-button:active{transform:scale(0.98);background:#f0ede8;}
+html,body{margin:0;height:100%;overflow:hidden;overscroll-behavior:none;background:#1a1a1a;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#2c2c2a;-webkit-tap-highlight-color:transparent;}
+#wrap{position:fixed;inset:0;touch-action:none;}
+#c{width:100%;height:100%;display:block;outline:none;}
+.ib{width:44px;height:44px;border-radius:12px;border:none;background:rgba(255,255,255,0.72);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);color:#2c2c2a;display:flex;align-items:center;justify-content:center;font-size:20px;padding:0;cursor:pointer;}
+.ib:active{transform:scale(0.93);}
+.ib.on{background:rgba(44,44,42,0.88);color:#fff;}
+#rail{position:fixed;top:calc(10px + env(safe-area-inset-top));right:calc(10px + env(safe-area-inset-right));display:flex;flex-direction:column;flex-wrap:wrap-reverse;gap:8px;max-height:calc(100dvh - 20px);z-index:5;}
+#pad{position:fixed;left:calc(12px + env(safe-area-inset-left));bottom:calc(14px + env(safe-area-inset-bottom));display:grid;grid-template-columns:repeat(3,46px);grid-template-rows:repeat(2,46px);gap:6px;z-index:5;user-select:none;-webkit-user-select:none;}
+#pad .ib{width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,0.5);}
+#info{position:fixed;top:calc(10px + env(safe-area-inset-top));left:calc(10px + env(safe-area-inset-left));font-size:12px;padding:5px 10px;border-radius:10px;background:rgba(255,255,255,0.78);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);z-index:5;pointer-events:none;}
+#hint{position:fixed;right:calc(10px + env(safe-area-inset-right));bottom:calc(14px + env(safe-area-inset-bottom));font-size:12px;padding:6px 10px;border-radius:10px;background:rgba(255,255,255,0.72);z-index:4;pointer-events:none;transition:opacity 0.6s;max-width:55vw;}
+.pop{position:fixed;top:calc(10px + env(safe-area-inset-top));right:calc(64px + env(safe-area-inset-right));width:min(300px,calc(100vw - 90px));max-height:calc(100dvh - 30px);overflow:auto;background:rgba(255,255,255,0.93);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);border-radius:14px;padding:12px;display:none;z-index:6;font-size:13px;box-shadow:0 6px 20px rgba(0,0,0,0.18);box-sizing:border-box;}
+.ph{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.ph h3{margin:0;font-size:14px;font-weight:600;}
+.x{width:30px;height:30px;border:none;background:transparent;font-size:18px;border-radius:8px;cursor:pointer;color:#2c2c2a;}
+.tb{font:inherit;font-size:13px;padding:8px 10px;border:1px solid #d6d1c8;border-radius:10px;background:#fff;color:#2c2c2a;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}
+.tb.on{background:#2c2c2a;color:#fff;border-color:#2c2c2a;}
+.tb:active{transform:scale(0.97);}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.seg{display:flex;gap:6px;margin-bottom:10px;}
+.crow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;}
+.row{display:flex;justify-content:space-between;margin:6px 0 4px;color:#6b6760;}
+.row span{color:#2c2c2a;font-weight:600;}
+.note{font-size:12px;color:#6b6760;margin:8px 0 0;}
 input[type=range]{width:100%;accent-color:#8a7d6b;}
-input[type=number],#cHex{font:inherit;font-size:14px;padding:6px;border:1px solid #c9c4bb;border-radius:8px;}
-.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);}
-#wrap{position:relative;width:100%;height:70vh;min-height:420px;border-radius:12px;overflow:hidden;border:1px solid #d6d1c8;touch-action:none;}
-.panel{max-width:620px;}
-.box{margin-top:10px;padding:12px;border:1px solid #d6d1c8;border-radius:12px;background:#fff;}
+input[type=number],#cHex{font:inherit;font-size:13px;padding:6px;border:1px solid #d6d1c8;border-radius:8px;box-sizing:border-box;}
+#cHex{width:92px;}input[type=number]{width:62px;}
+#cPick{width:52px;height:40px;padding:0;border:none;background:none;}
+#cErr{color:#a32d2d;font-size:12px;min-height:16px;margin:6px 0;}
+#cfgTa{width:100%;height:200px;font-family:monospace;font-size:11px;box-sizing:border-box;border:1px solid #d6d1c8;border-radius:8px;padding:8px;}
 </style>
 <script>window.onerror=function(m,s,l){var i=document.getElementById('info');if(i)i.textContent='Σφάλμα: '+m+' (γραμμή '+l+')';};</script>
 <script src="config.js"></script>
 </head>
 <body>
-<h2 class="sr-only">Τρισδιάστατο μοντέλο διαμερίσματος</h2>
-<div id="wrap">
-<canvas id="c" tabindex="0" style="width:100%;height:100%;display:block;outline:none;"></canvas>
-<div id="info" style="position:absolute;left:8px;top:8px;font-size:12px;padding:4px 10px;border-radius:8px;background:rgba(255,255,255,0.88);color:#2C2C2A;">Φόρτωση…</div>
+<div id="wrap"><canvas id="c" tabindex="0" aria-label="Τρισδιάστατο μοντέλο διαμερίσματος"></canvas></div>
+<div id="info">Φόρτωση…</div>
+<div id="hint">Σύρε για να κοιτάξεις · βελάκια για κίνηση · <i class="ti ti-route"></i> ξενάγηση</div>
+<div id="rail">
+<button class="ib" id="fsBtn" aria-label="Πλήρης οθόνη"><i class="ti ti-maximize"></i></button>
+<button class="ib" id="navBtn" aria-label="Κάτοψη"><i class="ti ti-map"></i></button>
+<button class="ib" id="tourBtn" aria-label="Ξενάγηση"><i class="ti ti-route"></i></button>
+<button class="ib" id="night" aria-label="Βράδυ"><i class="ti ti-moon"></i></button>
+<button class="ib" data-pop="popLight" aria-label="Φωτισμός"><i class="ti ti-bulb"></i></button>
+<button class="ib" data-pop="popUp" aria-label="Εικόνες υλικών"><i class="ti ti-upload"></i></button>
+<button class="ib" data-pop="popCol" aria-label="Χρώματα"><i class="ti ti-palette"></i></button>
+<button class="ib" data-pop="popCfg" aria-label="Ρυθμίσεις"><i class="ti ti-settings"></i></button>
 </div>
-<div class="panel">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;gap:12px;">
-<div style="display:grid;grid-template-columns:repeat(3,52px);grid-template-rows:repeat(2,44px);gap:6px;user-select:none;-webkit-user-select:none;">
-<span></span><button data-k="f" aria-label="Μπροστά"><i class="ti ti-arrow-up"></i></button><span></span>
-<button data-k="l" aria-label="Στροφή αριστερά"><i class="ti ti-arrow-left"></i></button>
-<button data-k="b" aria-label="Πίσω"><i class="ti ti-arrow-down"></i></button>
-<button data-k="r" aria-label="Στροφή δεξιά"><i class="ti ti-arrow-right"></i></button>
+<div id="pad">
+<span></span><button class="ib" data-k="f" aria-label="Μπροστά"><i class="ti ti-chevron-up"></i></button><span></span>
+<button class="ib" data-k="l" aria-label="Στροφή αριστερά"><i class="ti ti-chevron-left"></i></button>
+<button class="ib" data-k="b" aria-label="Πίσω"><i class="ti ti-chevron-down"></i></button>
+<button class="ib" data-k="r" aria-label="Στροφή δεξιά"><i class="ti ti-chevron-right"></i></button>
 </div>
-<div style="display:flex;flex-direction:column;gap:6px;">
-<button id="view"><i class="ti ti-map"></i> Κάτοψη</button>
-<button id="reset"><i class="ti ti-door"></i> Είσοδος</button>
-<button id="night"><i class="ti ti-moon"></i> Βράδυ</button>
+<div class="pop" id="popLight">
+<div class="ph"><h3>Φωτισμός</h3><button class="x pclose" aria-label="Κλείσιμο"><i class="ti ti-x"></i></button></div>
+<label class="row" for="dim">Φωτεινότητα <span id="dimO">80%</span></label><input type="range" id="dim" min="0" max="100" step="1" value="80">
+<label class="row" for="kel">Θερμότητα <span id="kelO">3000K</span></label><input type="range" id="kel" min="2700" max="6000" step="100" value="3000">
 </div>
+<div class="pop" id="popUp">
+<div class="ph"><h3>Εικόνες υλικών</h3><button class="x pclose" aria-label="Κλείσιμο"><i class="ti ti-x"></i></button></div>
+<div class="grid2">
+<button class="tb" data-up="floor"><i class="ti ti-layout-grid"></i> Δάπεδο</button>
+<button class="tb" data-up="counter"><i class="ti ti-tools-kitchen-2"></i> Πάγκος</button>
+<button class="tb" data-up="splash"><i class="ti ti-wall"></i> Πλάτη</button>
+<button class="tb" data-up="bathA"><i class="ti ti-bath"></i> Μπάνιο</button>
+<button class="tb" data-up="bathB"><i class="ti ti-texture"></i> Ανάγλυφο</button>
 </div>
-<div style="display:grid;grid-template-columns:auto minmax(0,1fr) 52px;gap:8px 10px;align-items:center;margin-top:12px;font-size:13px;">
-<label for="dim" style="color:#6b6760;"><i class="ti ti-bulb"></i> Φωτεινότητα</label><input type="range" id="dim" min="0" max="100" step="1" value="80"><span id="dimO" style="font-weight:500;">80%</span>
-<label for="kel" style="color:#6b6760;"><i class="ti ti-temperature"></i> Θερμότητα</label><input type="range" id="kel" min="2700" max="6000" step="100" value="3000"><span id="kelO" style="font-weight:500;">3000K</span>
+<p class="note">Φωτογραφία ενός πλακιδίου, ή της πλάκας για τον πάγκο.</p>
 </div>
-<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">
-<button data-up="floor"><i class="ti ti-photo"></i> Δάπεδο</button>
-<button data-up="counter"><i class="ti ti-photo"></i> Πάγκος</button>
-<button data-up="splash"><i class="ti ti-photo"></i> Πλάτη</button>
-<button data-up="bathA"><i class="ti ti-photo"></i> Μπάνιο</button>
-<button data-up="bathB"><i class="ti ti-photo"></i> Ανάγλυφο</button>
-<input id="tileIn" type="file" accept="image/*" style="display:none;">
+<div class="pop" id="popCol">
+<div class="ph"><h3>Χρώματα</h3><button class="x pclose" aria-label="Κλείσιμο"><i class="ti ti-x"></i></button></div>
+<div class="seg"><button class="tb on" data-col="wall"><i class="ti ti-wall"></i> Τοίχοι</button><button class="tb" data-col="door"><i class="ti ti-door"></i> Πόρτες</button></div>
+<div class="crow"><input type="color" id="cPick" aria-label="Παλέτα"><label>HEX <input id="cHex" maxlength="7"></label></div>
+<div class="crow"><label>R <input id="cR" type="number" min="0" max="255" step="1"></label><label>G <input id="cG" type="number" min="0" max="255" step="1"></label><label>B <input id="cB" type="number" min="0" max="255" step="1"></label></div>
+<div id="cErr"></div>
+<button class="tb" id="cReset"><i class="ti ti-refresh"></i> Επαναφορά</button>
 </div>
-<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;">
-<button data-col="wall"><i class="ti ti-palette"></i> Χρώμα τοίχων</button>
-<button data-col="door"><i class="ti ti-palette"></i> Χρώμα πορτών</button>
-<button id="cfgBtn"><i class="ti ti-settings"></i> Ρυθμίσεις</button>
+<div class="pop" id="popCfg">
+<div class="ph"><h3>Ρυθμίσεις για config.js</h3><button class="x pclose" aria-label="Κλείσιμο"><i class="ti ti-x"></i></button></div>
+<textarea id="cfgTa" readonly></textarea>
+<div class="crow"><button class="tb" id="cfgCopy"><i class="ti ti-copy"></i> Αντιγραφή</button><span id="cfgMsg" style="font-size:12px;color:#6b6760;"></span></div>
 </div>
-<div id="colPanel" class="box" style="display:none;">
-<div id="colTitle" style="font-weight:500;margin-bottom:8px;">Χρώμα τοίχων</div>
-<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
-<input type="color" id="cPick" aria-label="Παλέτα χρώματος" style="width:56px;height:42px;padding:0;border:none;background:none;">
-<label style="font-size:13px;">HEX <input id="cHex" maxlength="7" style="width:96px;"></label>
-</div>
-<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:13px;align-items:center;">
-<label>R <input id="cR" type="number" min="0" max="255" step="1" style="width:64px;"></label>
-<label>G <input id="cG" type="number" min="0" max="255" step="1" style="width:64px;"></label>
-<label>B <input id="cB" type="number" min="0" max="255" step="1" style="width:64px;"></label>
-</div>
-<div id="cErr" style="color:#a32d2d;font-size:13px;min-height:18px;margin-top:6px;"></div>
-<div style="display:flex;gap:6px;"><button id="cReset">Επαναφορά</button><button id="cClose">Κλείσιμο</button></div>
-</div>
-<div id="cfgBox" class="box" style="display:none;">
-<div style="font-weight:500;margin-bottom:6px;">Περιεχόμενο για το config.js</div>
-<textarea id="cfgTa" readonly style="width:100%;height:190px;font-family:monospace;font-size:12px;box-sizing:border-box;border:1px solid #c9c4bb;border-radius:8px;padding:8px;"></textarea>
-<div style="display:flex;gap:6px;align-items:center;margin-top:6px;"><button id="cfgCopy">Αντιγραφή</button><button id="cfgClose">Κλείσιμο</button><span id="cfgMsg" style="font-size:12px;color:#6b6760;"></span></div>
-</div>
-<p style="font-size:12px;color:#6b6760;margin:8px 0 0;">Βελάκια ή WASD για κίνηση, σύρε για να κοιτάξεις γύρω. Για πλακάκια, φωτογραφία ενός πλακιδίου. Για τον πάγκο, φωτογραφία της πλάκας.</p>
-</div>
+<input id="tileIn" type="file" accept="image/*" hidden>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function(){
@@ -277,7 +291,7 @@ spots.forEach(s=>{s.l.intensity=s.i*d;s.l.color.copy(lc);});const sc=WHT.clone()
 slabs.splash.forEach(e=>{e.m.emissive.copy(lc).multiplyScalar(0.3*d);});
 mShade.emissive.copy(col).multiplyScalar(0.55*d);mPend.emissive.copy(col).multiplyScalar(0.25*d);mGreyL.emissive.copy(col).multiplyScalar(0.18*d);}
 const nb=document.getElementById('night');
-nb.onclick=()=>{night=!night;nb.innerHTML=night?'<i class="ti ti-sun"></i> Μέρα':'<i class="ti ti-moon"></i> Βράδυ';update();};
+nb.onclick=()=>{night=!night;nb.innerHTML=night?'<i class="ti ti-sun"></i>':'<i class="ti ti-moon"></i>';nb.setAttribute('aria-label',night?'Μέρα':'Βράδυ');update();};
 const dI=document.getElementById('dim'),kI=document.getElementById('kel'),dO=document.getElementById('dimO'),kO=document.getElementById('kelO');
 dI.oninput=()=>{dimV=Math.round(+dI.value);dO.textContent=dimV+'%';update();};kI.oninput=()=>{kelV=Math.round(+kI.value);kO.textContent=kelV+'K';update();};
 const labels=[];
@@ -295,52 +309,62 @@ const msgs={counter:'Νέος πάγκος',splash:'Νέα πλάτη',bathA:'Ν
 function applySlab(img,list,quiet){const b=imgTex(img);slabs[list].forEach(e=>setMap(e,b));if(!quiet)msg(msgs[list]);}
 async function decodeBlob(b){if(window.createImageBitmap){try{return await createImageBitmap(b,{imageOrientation:'from-image'});}catch(_){return await createImageBitmap(b);}}return await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(b);});}
 async function loadImg(src){const r=await fetch(src,{cache:'no-cache'});if(!r.ok)throw new Error(r.status);return decodeBlob(await r.blob());}
+const pops={};document.querySelectorAll('.pop').forEach(p=>{pops[p.id]=p;});
+function closePops(){Object.values(pops).forEach(p=>{p.style.display='none';});document.querySelectorAll('[data-pop]').forEach(b=>b.classList.remove('on'));}
+document.querySelectorAll('[data-pop]').forEach(b=>{b.onclick=()=>{const id=b.dataset.pop,p=pops[id],was=p.style.display==='block';closePops();if(!was){p.style.display='block';b.classList.add('on');if(id==='popCol'){fillInputs(curCol[colTarget]);cErr.textContent='';}if(id==='popCfg'){cfgTa.value=cfgText();cfgMsg.textContent='';}}};});
+document.querySelectorAll('.pclose').forEach(b=>{b.onclick=closePops;});
 const tIn=document.getElementById('tileIn');let target='floor';
-document.querySelectorAll('[data-up]').forEach(b=>{b.onclick=()=>{target=b.dataset.up;tIn.value='';tIn.click();};});
+document.querySelectorAll('[data-up]').forEach(b=>{b.onclick=()=>{target=b.dataset.up;tIn.value='';closePops();tIn.click();};});
 tIn.onchange=async()=>{const f=tIn.files&&tIn.files[0];if(!f)return;try{const img=await decodeBlob(f);if(target==='floor')applyPhoto(img);else applySlab(img,target);}catch(e){msg('Η εικόνα δεν διαβάστηκε. Δοκίμασε JPG ή PNG');}};
 const defCol={wall:'#d7d2c9',door:'#a19e97'},curCol={wall:'#d7d2c9',door:'#a19e97'};let colTarget='wall';
 function setColor(tg,hex){const c=new THREE.Color(hex);curCol[tg]='#'+c.getHexString();if(tg==='wall'){mWall.color.copy(c);mTvc.color.copy(c);mTvSeam.color.copy(c).multiplyScalar(0.86);}else{mDoor.color.copy(c);}}
-const cp=document.getElementById('colPanel'),cPick=document.getElementById('cPick'),cHex=document.getElementById('cHex'),cR=document.getElementById('cR'),cG=document.getElementById('cG'),cB=document.getElementById('cB'),cErr=document.getElementById('cErr'),cTitle=document.getElementById('colTitle');
+const cPick=document.getElementById('cPick'),cHex=document.getElementById('cHex'),cR=document.getElementById('cR'),cG=document.getElementById('cG'),cB=document.getElementById('cB'),cErr=document.getElementById('cErr');
 function fillInputs(hex){const c=new THREE.Color(hex);cPick.value=hex;cHex.value=hex;cR.value=Math.round(c.r*255);cG.value=Math.round(c.g*255);cB.value=Math.round(c.b*255);}
-document.querySelectorAll('[data-col]').forEach(b=>{b.onclick=()=>{colTarget=b.dataset.col;cTitle.textContent=colTarget==='wall'?'Χρώμα τοίχων':'Χρώμα πορτών';fillInputs(curCol[colTarget]);cErr.textContent='';cp.style.display='block';};});
+document.querySelectorAll('[data-col]').forEach(b=>{b.onclick=()=>{colTarget=b.dataset.col;document.querySelectorAll('[data-col]').forEach(x=>x.classList.toggle('on',x===b));fillInputs(curCol[colTarget]);cErr.textContent='';};});
 cPick.oninput=()=>{setColor(colTarget,cPick.value);fillInputs(curCol[colTarget]);cErr.textContent='';};
 cHex.oninput=()=>{let v=cHex.value.trim();if(v[0]!=='#')v='#'+v;if(/^#[0-9a-fA-F]{6}$/.test(v)){cErr.textContent='';v=v.toLowerCase();setColor(colTarget,v);cPick.value=v;const c=new THREE.Color(v);cR.value=Math.round(c.r*255);cG.value=Math.round(c.g*255);cB.value=Math.round(c.b*255);}else cErr.textContent='Γράψε 6 δεκαεξαδικά ψηφία, π.χ. #d7d2c9';};
 [cR,cG,cB].forEach(inp=>{inp.oninput=()=>{const vals=[cR,cG,cB].map(i=>i.value===''?NaN:Number(i.value));if(vals.some(v=>!Number.isInteger(v)||v<0||v>255)){cErr.textContent='Οι τιμές R, G, B πρέπει να είναι ακέραιοι από 0 έως 255';return;}cErr.textContent='';const hex='#'+vals.map(v=>v.toString(16).padStart(2,'0')).join('');setColor(colTarget,hex);cPick.value=hex;cHex.value=hex;};});
 document.getElementById('cReset').onclick=()=>{setColor(colTarget,defCol[colTarget]);fillInputs(curCol[colTarget]);cErr.textContent='';};
-document.getElementById('cClose').onclick=()=>{cp.style.display='none';};
 const texDefaults={floor:'textures/floor.jpg',counter:'textures/counter.jpg',splash:'textures/splash.jpg',bathA:'textures/bath.jpg',bathB:'textures/relief.jpg'};
 const CT=Object.assign({},texDefaults,CFG.textures||{});
 function cfgText(){return 'window.SPITI_CONFIG = '+JSON.stringify({textures:CT,colors:{wall:curCol.wall,door:curCol.door},lights:{dim:dimV,kelvin:kelV}},null,2)+';\n';}
-const cfgBox=document.getElementById('cfgBox'),cfgTa=document.getElementById('cfgTa'),cfgMsg=document.getElementById('cfgMsg');
-document.getElementById('cfgBtn').onclick=()=>{cfgTa.value=cfgText();cfgMsg.textContent='';cfgBox.style.display='block';};
-document.getElementById('cfgCopy').onclick=async()=>{try{await navigator.clipboard.writeText(cfgTa.value);cfgMsg.textContent='Αντιγράφηκε';}catch(e){cfgTa.focus();cfgTa.select();cfgMsg.textContent='Πάτα παρατεταμένα στο κείμενο για αντιγραφή';}};
-document.getElementById('cfgClose').onclick=()=>{cfgBox.style.display='none';};
+const cfgTa=document.getElementById('cfgTa'),cfgMsg=document.getElementById('cfgMsg');
+document.getElementById('cfgCopy').onclick=async()=>{try{await navigator.clipboard.writeText(cfgTa.value);cfgMsg.textContent='Αντιγράφηκε';}catch(e){cfgTa.focus();cfgTa.select();cfgMsg.textContent='Πάτα παρατεταμένα για αντιγραφή';}};
 const cc=CFG.colors||{};try{setColor('wall',cc.wall||defCol.wall);}catch(_){setColor('wall',defCol.wall);}try{setColor('door',cc.door||defCol.door);}catch(_){setColor('door',defCol.door);}
 const cl=CFG.lights||{};if(typeof cl.dim==='number'){dimV=Math.max(0,Math.min(100,Math.round(cl.dim)));dI.value=dimV;dO.textContent=dimV+'%';}if(typeof cl.kelvin==='number'){kelV=Math.max(2700,Math.min(6000,Math.round(cl.kelvin/100)*100));kI.value=kelV;kO.textContent=kelV+'K';}
 Object.keys(CT).forEach(k=>{if(!CT[k])return;loadImg(CT[k]).then(img=>{try{if(k==='floor')applyPhoto(img,true);else if(slabs[k])applySlab(img,k,true);}catch(_){}}).catch(()=>{});});
 const keys={},km={ArrowUp:'f',w:'f',W:'f',ArrowDown:'b',s:'b',S:'b',ArrowLeft:'l',a:'l',A:'l',ArrowRight:'r',d:'r',D:'r'};
 let px=3.86,pz=8.9,yaw=0,pitch=0,topView=false;
-window.addEventListener('keydown',e=>{const tg=e.target&&e.target.tagName;if(tg==='INPUT'||tg==='TEXTAREA')return;const k=km[e.key];if(k){keys[k]=1;e.preventDefault();}});
+const navBtn=document.getElementById('navBtn'),tourBtn=document.getElementById('tourBtn'),fsBtn=document.getElementById('fsBtn');
+function setNavIcon(){navBtn.innerHTML=topView?'<i class="ti ti-door"></i>':'<i class="ti ti-map"></i>';navBtn.setAttribute('aria-label',topView?'Είσοδος':'Κάτοψη');}
+const stops=[{n:'Σαλόνι',x:2.55,z:3.0,y:0.9},{n:'Κουζίνα',x:1.9,z:5.9,y:2.9},{n:'Χωλ',x:3.86,z:8.3,y:0},{n:'Διάδρομος',x:5.2,z:4.47,y:-1.57},{n:'Δωμάτιο 1',x:4.9,z:2.6,y:-1.2},{n:'Δωμάτιο 2',x:8.8,z:2.7,y:-1.3},{n:'Δωμάτιο 3',x:6.05,z:6.6,y:3.14},{n:'Μπάνιο',x:9.2,z:4.45,y:-1.4},{n:'WC',x:2.4,z:8.4,y:1.57},{n:'Μπαλκόνι',x:5.5,z:-0.4,y:3.14}];
+let tourI=-1,touring=false,tourT0=0,baseYaw=0;
+function stopTour(){if(touring){touring=false;tourBtn.classList.remove('on');}}
+tourBtn.onclick=()=>{closePops();tourI=(tourI+1)%stops.length;const s=stops[tourI];px=s.x;pz=s.z;baseYaw=s.y;yaw=s.y;pitch=-0.08;topView=false;setNavIcon();touring=true;tourT0=performance.now();tourBtn.classList.add('on');msg(s.n);};
+navBtn.onclick=()=>{closePops();stopTour();if(topView){topView=false;px=3.86;pz=8.9;yaw=0;pitch=0;}else{topView=true;}setNavIcon();};
+fsBtn.onclick=()=>{const de=document.documentElement;if(!document.fullscreenElement&&!document.webkitFullscreenElement){const f=de.requestFullscreen||de.webkitRequestFullscreen;if(f)f.call(de);}else{const x=document.exitFullscreen||document.webkitExitFullscreen;if(x)x.call(document);}};
+function fsIcon(){fsBtn.innerHTML=(document.fullscreenElement||document.webkitFullscreenElement)?'<i class="ti ti-minimize"></i>':'<i class="ti ti-maximize"></i>';}
+document.addEventListener('fullscreenchange',fsIcon);document.addEventListener('webkitfullscreenchange',fsIcon);
+window.addEventListener('keydown',e=>{const tg=e.target&&e.target.tagName;if(tg==='INPUT'||tg==='TEXTAREA')return;const k=km[e.key];if(k){keys[k]=1;stopTour();e.preventDefault();}});
 window.addEventListener('keyup',e=>{const k=km[e.key];if(k)keys[k]=0;});
-document.querySelectorAll('[data-k]').forEach(b=>{const k=b.dataset.k;b.addEventListener('pointerdown',e=>{keys[k]=1;e.preventDefault();});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>{keys[k]=0;}));b.addEventListener('contextmenu',e=>e.preventDefault());});
+document.querySelectorAll('[data-k]').forEach(b=>{const k=b.dataset.k;b.addEventListener('pointerdown',e=>{keys[k]=1;stopTour();closePops();e.preventDefault();});['pointerup','pointerleave','pointercancel'].forEach(ev=>b.addEventListener(ev,()=>{keys[k]=0;}));b.addEventListener('contextmenu',e=>e.preventDefault());});
 let drag=null;
-cv.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY];try{cv.setPointerCapture(e.pointerId);}catch(_){}cv.focus();});
-cv.addEventListener('pointermove',e=>{if(!drag)return;if(!topView){yaw+=(e.clientX-drag[0])*0.006;pitch=Math.max(-1.1,Math.min(1.1,pitch+(e.clientY-drag[1])*0.004));}drag=[e.clientX,e.clientY];});
+cv.addEventListener('pointerdown',e=>{closePops();drag=[e.clientX,e.clientY];try{cv.setPointerCapture(e.pointerId);}catch(_){}cv.focus();});
+cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag[0],dy=e.clientY-drag[1];if(Math.abs(dx)+Math.abs(dy)>2)stopTour();if(!topView&&!touring){yaw+=dx*0.006;pitch=Math.max(-1.1,Math.min(1.1,pitch+dy*0.004));}drag=[e.clientX,e.clientY];});
 ['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>{drag=null;}));
-const vb=document.getElementById('view');
-vb.onclick=()=>{topView=!topView;vb.innerHTML=topView?'<i class="ti ti-walk"></i> Περιήγηση':'<i class="ti ti-map"></i> Κάτοψη';};
-document.getElementById('reset').onclick=()=>{px=3.86;pz=8.9;yaw=0;pitch=0;};
 function free(x,z){const r=0.18;for(const c of cols)if(x>c[0]-r&&x<c[2]+r&&z>c[1]-r&&z<c[3]+r)return false;return true;}
 function roomAt(x,z){for(const r of rooms)for(const q of r[1])if(x>=q[0]&&x<=q[2]&&z>=q[1]&&z<=q[3])return r[0];return null;}
-function size(){const w=wrap.clientWidth||360,h=wrap.clientHeight||440;R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+function size(){const w=wrap.clientWidth||window.innerWidth,h=wrap.clientHeight||window.innerHeight;R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
 if(window.ResizeObserver)new ResizeObserver(size).observe(wrap);window.addEventListener('resize',size);size();
 update();info.textContent='Χωλ';
+const hint=document.getElementById('hint');setTimeout(()=>{hint.style.opacity='0';},6000);
 let last=performance.now();
 function loop(t){const dt=Math.min((t-last)/1000,0.05);last=t;
 if(keys.l)yaw+=1.8*dt;if(keys.r)yaw-=1.8*dt;
 const v=(keys.f?1:0)-(keys.b?1:0);if(v){const sp=1.5*dt*v,nx=px-Math.sin(yaw)*sp,nz=pz-Math.cos(yaw)*sp;if(free(nx,pz))px=nx;if(free(px,nz))pz=nz;}
+if(touring)yaw=baseYaw+0.85*Math.sin((t-tourT0)/1000*0.6);
 if(t>msgT){const rn=roomAt(px,pz);if(rn&&info.textContent!==rn)info.textContent=rn;}
-if(topView){cam.position.set(5.485,12,4.3);cam.rotation.set(-Math.PI/2,0,0);}else{cam.position.set(px,1.6,pz);cam.rotation.set(pitch,yaw,0);}
+if(topView){const ar=cam.aspect,hgt=ar<1?16:12;cam.position.set(5.485,hgt,4.3);cam.rotation.set(-Math.PI/2,0,0);}else{cam.position.set(px,1.6,pz);cam.rotation.set(pitch,yaw,0);}
 ceil.visible=!topView;labels.forEach(l=>{l.visible=topView;});mk.visible=topView;mk.position.set(px,3,pz);mk.rotation.y=yaw;
 R.render(S,cam);requestAnimationFrame(loop);}
 requestAnimationFrame(loop);
