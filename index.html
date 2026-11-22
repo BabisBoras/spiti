@@ -49,6 +49,7 @@ input[type=number],#cHex{font:inherit;font-size:13px;padding:6px;border:1px soli
 <button class="ib" id="fsBtn" aria-label="Πλήρης οθόνη"><i class="ti ti-maximize"></i></button>
 <button class="ib" id="navBtn" aria-label="Κάτοψη"><i class="ti ti-map"></i></button>
 <button class="ib" id="tourBtn" aria-label="Ξενάγηση"><i class="ti ti-route"></i></button>
+<button class="ib" id="fishBtn" aria-label="Πανοραμική προβολή"><i class="ti ti-aperture"></i></button>
 <button class="ib" id="night" aria-label="Βράδυ"><i class="ti ti-moon"></i></button>
 <button class="ib" data-pop="popLight" aria-label="Φωτισμός"><i class="ti ti-bulb"></i></button>
 <button class="ib" data-pop="popUp" aria-label="Εικόνες υλικών"><i class="ti ti-upload"></i></button>
@@ -284,6 +285,14 @@ pLight(9.55,2.6,4.7,1.0,4,true);pLight(2.32,2.6,8.25,0.9,3.5,true);
 pLight(2.85,1.25,2.32,0.7,1.6,false);pLight(5.51,2.12,2.25,1.0,6,true);pLight(9.2,2.55,2.25,1.0,6,true);pLight(6.05,2.55,7.4,1.0,6,true);
 S.traverse(o=>{if(o.isMesh){const bm=o.material&&o.material.isMeshBasicMaterial;const tr=o.material&&o.material.transparent;o.castShadow=!bm&&!tr&&o!==ceil&&!o.userData.ns;o.receiveShadow=!bm;}});
 R.shadowMap.needsUpdate=true;
+const rt=new THREE.WebGLRenderTarget(2,2,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});
+const fq=new THREE.Scene(),fcam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+const fmat=new THREE.ShaderMaterial({uniforms:{tex:{value:rt.texture},aspect:{value:1},rmax:{value:1.4},thD:{value:1.25},thf:{value:1}},depthTest:false,depthWrite:false,
+vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.0,1.0);}',
+fragmentShader:'uniform sampler2D tex;uniform float aspect;uniform float rmax;uniform float thD;uniform float thf;varying vec2 vUv;void main(){vec2 p=(vUv*2.0-1.0)*vec2(aspect,1.0);float r=length(p);vec2 q=p;if(r>0.00001){float th=r/rmax*thD;q=p/r*(tan(th)/thf);}vec2 uv=q/vec2(aspect,1.0)*0.5+0.5;if(uv.x<0.0||uv.x>1.0||uv.y<0.0||uv.y>1.0){gl_FragColor=vec4(0.0,0.0,0.0,1.0);}else{gl_FragColor=texture2D(tex,uv);}}'});
+fq.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),fmat));
+let fish=false,fovState=false;
+function setFov(){if(fovState){const ar=cam.aspect,rm=Math.sqrt(ar*ar+1),thf=Math.tan(1.25)/rm*1.02;cam.fov=2*Math.atan(thf)*180/Math.PI;fmat.uniforms.aspect.value=ar;fmat.uniforms.rmax.value=rm;fmat.uniforms.thf.value=thf;}else cam.fov=70;cam.updateProjectionMatrix();}
 function kelvin(K){const t=K/100;let r,g,b;if(t<=66){r=255;g=99.4708025861*Math.log(t)-161.1195681661;b=t<=19?0:138.5177312231*Math.log(t-10)-305.0447927307;}else{r=329.698727446*Math.pow(t-60,-0.1332047592);g=288.1221695283*Math.pow(t-60,-0.0755148492);b=255;}const c=v=>Math.max(0,Math.min(255,v))/255;return new THREE.Color(c(r),c(g),c(b));}
 let night=false,dimV=80,kelV=3000;const offC=new THREE.Color(0xd6d6d6),WHT=new THREE.Color(1,1,1);
 function update(){const d=dimV/100,col=kelvin(kelV),lc=WHT.clone().lerp(col,0.8);hemi.intensity=night?0.06:0.95;amb.intensity=night?0.04+0.1*d:0.1;S.background.set(night?0x0e1118:0xdfe6ec);mCeil.emissive.set(night?0x000000:0x8a8a8a);
@@ -335,13 +344,24 @@ const cl=CFG.lights||{};if(typeof cl.dim==='number'){dimV=Math.max(0,Math.min(10
 Object.keys(CT).forEach(k=>{if(!CT[k])return;loadImg(CT[k]).then(img=>{try{if(k==='floor')applyPhoto(img,true);else if(slabs[k])applySlab(img,k,true);}catch(_){}}).catch(()=>{});});
 const keys={},km={ArrowUp:'f',w:'f',W:'f',ArrowDown:'b',s:'b',S:'b',ArrowLeft:'l',a:'l',A:'l',ArrowRight:'r',d:'r',D:'r'};
 let px=3.86,pz=8.9,yaw=0,pitch=0,topView=false;
-const navBtn=document.getElementById('navBtn'),tourBtn=document.getElementById('tourBtn'),fsBtn=document.getElementById('fsBtn');
+const navBtn=document.getElementById('navBtn'),tourBtn=document.getElementById('tourBtn'),fsBtn=document.getElementById('fsBtn'),fishBtn=document.getElementById('fishBtn');
 function setNavIcon(){navBtn.innerHTML=topView?'<i class="ti ti-door"></i>':'<i class="ti ti-map"></i>';navBtn.setAttribute('aria-label',topView?'Είσοδος':'Κάτοψη');}
-const stops=[{n:'Σαλόνι',x:2.55,z:3.0,y:0.9},{n:'Κουζίνα',x:1.9,z:5.9,y:2.9},{n:'Χωλ',x:3.86,z:8.3,y:0},{n:'Διάδρομος',x:5.2,z:4.47,y:-1.57},{n:'Δωμάτιο 1',x:4.9,z:2.6,y:-1.2},{n:'Δωμάτιο 2',x:8.8,z:2.7,y:-1.3},{n:'Δωμάτιο 3',x:6.05,z:6.6,y:3.14},{n:'Μπάνιο',x:9.2,z:4.45,y:-1.4},{n:'WC',x:2.4,z:8.4,y:1.57},{n:'Μπαλκόνι',x:5.5,z:-0.4,y:3.14}];
+const stops=[
+{n:'Χωλ',x:3.86,z:8.95,y:0},
+{n:'Σαλόνι',x:3.0,z:4.3,y:0.6},
+{n:'Κουζίνα',x:3.0,z:5.6,y:2.54},
+{n:'WC',x:2.5,z:8.45,y:1.57},
+{n:'Διάδρομος',x:4.2,z:4.47,y:-1.57},
+{n:'Δωμάτιο 3',x:5.1,z:6.2,y:-2.54},
+{n:'Μπάνιο',x:8.95,z:4.4,y:-1.57},
+{n:'Δωμάτιο 2',x:8.15,z:3.55,y:-0.6},
+{n:'Δωμάτιο 1',x:4.05,z:3.55,y:-0.6},
+{n:'Μπαλκόνι',x:2.0,z:0.1,y:-1.2}];
 let tourI=-1,touring=false,tourT0=0,baseYaw=0;
 function stopTour(){if(touring){touring=false;tourBtn.classList.remove('on');}}
 tourBtn.onclick=()=>{closePops();tourI=(tourI+1)%stops.length;const s=stops[tourI];px=s.x;pz=s.z;baseYaw=s.y;yaw=s.y;pitch=-0.08;topView=false;setNavIcon();touring=true;tourT0=performance.now();tourBtn.classList.add('on');msg(s.n);};
 navBtn.onclick=()=>{closePops();stopTour();if(topView){topView=false;px=3.86;pz=8.9;yaw=0;pitch=0;}else{topView=true;}setNavIcon();};
+fishBtn.onclick=()=>{closePops();fish=!fish;fishBtn.classList.toggle('on',fish);fishBtn.setAttribute('aria-label',fish?'Κανονική προβολή':'Πανοραμική προβολή');};
 fsBtn.onclick=()=>{const de=document.documentElement;if(!document.fullscreenElement&&!document.webkitFullscreenElement){const f=de.requestFullscreen||de.webkitRequestFullscreen;if(f)f.call(de);}else{const x=document.exitFullscreen||document.webkitExitFullscreen;if(x)x.call(document);}};
 function fsIcon(){fsBtn.innerHTML=(document.fullscreenElement||document.webkitFullscreenElement)?'<i class="ti ti-minimize"></i>':'<i class="ti ti-maximize"></i>';}
 document.addEventListener('fullscreenchange',fsIcon);document.addEventListener('webkitfullscreenchange',fsIcon);
@@ -354,7 +374,7 @@ cv.addEventListener('pointermove',e=>{if(!drag)return;const dx=e.clientX-drag[0]
 ['pointerup','pointercancel'].forEach(ev=>cv.addEventListener(ev,()=>{drag=null;}));
 function free(x,z){const r=0.18;for(const c of cols)if(x>c[0]-r&&x<c[2]+r&&z>c[1]-r&&z<c[3]+r)return false;return true;}
 function roomAt(x,z){for(const r of rooms)for(const q of r[1])if(x>=q[0]&&x<=q[2]&&z>=q[1]&&z<=q[3])return r[0];return null;}
-function size(){const w=wrap.clientWidth||window.innerWidth,h=wrap.clientHeight||window.innerHeight;R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}
+function size(){const w=wrap.clientWidth||window.innerWidth,h=wrap.clientHeight||window.innerHeight;R.setSize(w,h,false);cam.aspect=w/h;setFov();const pr=R.getPixelRatio();rt.setSize(Math.min(4096,Math.round(w*pr*1.6)),Math.min(4096,Math.round(h*pr*1.6)));}
 if(window.ResizeObserver)new ResizeObserver(size).observe(wrap);window.addEventListener('resize',size);size();
 update();info.textContent='Χωλ';
 const hint=document.getElementById('hint');setTimeout(()=>{hint.style.opacity='0';},6000);
@@ -364,9 +384,11 @@ if(keys.l)yaw+=1.8*dt;if(keys.r)yaw-=1.8*dt;
 const v=(keys.f?1:0)-(keys.b?1:0);if(v){const sp=1.5*dt*v,nx=px-Math.sin(yaw)*sp,nz=pz-Math.cos(yaw)*sp;if(free(nx,pz))px=nx;if(free(px,nz))pz=nz;}
 if(touring)yaw=baseYaw+0.85*Math.sin((t-tourT0)/1000*0.6);
 if(t>msgT){const rn=roomAt(px,pz);if(rn&&info.textContent!==rn)info.textContent=rn;}
+const wantF=fish&&!topView;if(wantF!==fovState){fovState=wantF;setFov();}
 if(topView){const ar=cam.aspect,hgt=ar<1?16:12;cam.position.set(5.485,hgt,4.3);cam.rotation.set(-Math.PI/2,0,0);}else{cam.position.set(px,1.6,pz);cam.rotation.set(pitch,yaw,0);}
 ceil.visible=!topView;labels.forEach(l=>{l.visible=topView;});mk.visible=topView;mk.position.set(px,3,pz);mk.rotation.y=yaw;
-R.render(S,cam);requestAnimationFrame(loop);}
+if(fovState){R.setRenderTarget(rt);R.render(S,cam);R.setRenderTarget(null);R.render(fq,fcam);}else{R.render(S,cam);}
+requestAnimationFrame(loop);}
 requestAnimationFrame(loop);
 }catch(err){info.textContent='Σφάλμα: '+err.message;}
 })();
