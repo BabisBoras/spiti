@@ -21,7 +21,7 @@ window.SPITI_CONFIG = {
     "overhang": false
   },
   "daylight": {
-    "strength": 100,
-    "depth": 2.1
+    "strength": 160,
+    "depth": 6.6
   }
 };
