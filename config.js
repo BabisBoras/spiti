@@ -11,7 +11,7 @@ window.SPITI_CONFIG = {
     "door": "#a19e97"
   },
   "lights": {
-    "dim": 90,
+    "dim": 75,
     "kelvin": 4000
   },
   "site": {
