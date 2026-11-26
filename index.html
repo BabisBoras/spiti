@@ -38,6 +38,9 @@ input[type=number],#cHex{font:inherit;font-size:13px;padding:6px;border:1px soli
 #cPick{width:52px;height:40px;padding:0;border:none;background:none;}
 #cErr{color:#a32d2d;font-size:12px;min-height:16px;margin:6px 0;}
 #cfgTa{width:100%;height:200px;font-family:monospace;font-size:11px;box-sizing:border-box;border:1px solid #d6d1c8;border-radius:8px;padding:8px;}
+#globe{display:block;width:100%;aspect-ratio:1;border-radius:12px;background:radial-gradient(circle at 50% 45%,#22355a 0%,#0c1424 70%);touch-action:none;cursor:grab;}
+#latI,#lonI{width:84px;}
+.chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;}
 </style>
 <script>window.onerror=function(m,s,l){var i=document.getElementById('info');if(i)i.textContent='Σφάλμα: '+m+' (γραμμή '+l+')';};</script>
 <script src="config.js"></script>
@@ -52,6 +55,8 @@ input[type=number],#cHex{font:inherit;font-size:13px;padding:6px;border:1px soli
 <button class="ib" id="tourBtn" aria-label="Ξενάγηση"><i class="ti ti-route"></i></button>
 <button class="ib" id="fishBtn" aria-label="Πανοραμική προβολή"><i class="ti ti-aperture"></i></button>
 <button class="ib" id="night" aria-label="Βράδυ"><i class="ti ti-moon"></i></button>
+<button class="ib" data-pop="popLoc" title="Location" aria-label="Τοποθεσία και προσανατολισμός"><i class="ti ti-world"></i></button>
+<button class="ib" data-pop="popSun" title="Time" aria-label="Ώρα, ημερομηνία και καιρός"><i class="ti ti-clock"></i></button>
 <button class="ib" data-pop="popLight" aria-label="Φωτισμός"><i class="ti ti-bulb"></i></button>
 <button class="ib" data-pop="popUp" aria-label="Εικόνες υλικών"><i class="ti ti-upload"></i></button>
 <button class="ib" data-pop="popCol" aria-label="Χρώματα"><i class="ti ti-palette"></i></button>
@@ -93,8 +98,26 @@ input[type=number],#cHex{font:inherit;font-size:13px;padding:6px;border:1px soli
 <textarea id="cfgTa" readonly></textarea>
 <div class="crow"><button class="tb" id="cfgCopy"><i class="ti ti-copy"></i> Αντιγραφή</button><span id="cfgMsg" style="font-size:12px;color:#6b6760;"></span></div>
 </div>
+<div class="pop" id="popLoc">
+<div class="ph"><h3>Τοποθεσία</h3><button class="x pclose" aria-label="Κλείσιμο"><i class="ti ti-x"></i></button></div>
+<canvas id="globe" aria-label="Υδρόγειος: πάτα για να βάλεις το σπίτι"></canvas>
+<p class="note">Σύρε για περιστροφή · ροδέλα ή τσίμπημα για ζουμ · πάτα για να βάλεις το σπίτι.</p>
+<div class="crow"><label>Πλ. <input id="latI" type="number" step="0.0001" min="-89.9" max="89.9"></label><label>Μήκ. <input id="lonI" type="number" step="0.0001" min="-180" max="180"></label><button class="tb" id="geoBtn" aria-label="Η θέση μου"><i class="ti ti-current-location"></i></button></div>
+<label class="row" for="oriS">Τα μπαλκόνια κοιτάνε προς <span id="oriO">180° Ν</span></label><input type="range" id="oriS" min="0" max="359" step="1" value="180">
+<p class="note">Σημείο αναφοράς: η πρόσοψη με τις μπαλκονόπορτες. Στην κάτοψη φαίνεται η πυξίδα.</p>
+<label class="chk"><input type="checkbox" id="ovhI"> Μπαλκόνι ορόφου από πάνω (σκιάζει)</label>
+</div>
+<div class="pop" id="popSun">
+<div class="ph"><h3>Ήλιος και καιρός</h3><button class="x pclose" aria-label="Κλείσιμο"><i class="ti ti-x"></i></button></div>
+<label class="row" for="timeS">Ώρα <span id="timeO">12:00</span></label><input type="range" id="timeS" min="0" max="1435" step="5" value="720">
+<label class="row" for="dateS">Ημερομηνία <span id="dateO">—</span></label><input type="range" id="dateS" min="1" max="365" step="1" value="172">
+<label class="row" for="wxS">Καιρός <span id="wxO">Λιακάδα</span></label><input type="range" id="wxS" min="0" max="100" step="1" value="0">
+<div class="crow"><button class="tb" id="playBtn"><i class="ti ti-player-play"></i> Κίνηση ήλιου</button><button class="tb" id="nowBtn"><i class="ti ti-clock"></i> Τώρα</button></div>
+<p class="note" id="sunInfo"></p>
+</div>
 <input id="tileIn" type="file" accept="image/*" hidden>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/lights/RectAreaLightUniformsLib.js"></script>
 <script>
 (function(){
 const info=document.getElementById('info');
@@ -103,17 +126,40 @@ if(typeof THREE==='undefined'){info.textContent='Δεν φόρτωσε η βιβ
 const CFG=window.SPITI_CONFIG||{};
 const H=2.8,wrap=document.getElementById('wrap'),cv=document.getElementById('c');
 const R=new THREE.WebGLRenderer({canvas:cv,antialias:true});R.setPixelRatio(Math.min(window.devicePixelRatio||1,1.5));
-R.shadowMap.enabled=true;R.shadowMap.type=THREE.PCFSoftShadowMap;R.shadowMap.autoUpdate=false;
+R.toneMapping=THREE.CustomToneMapping;R.shadowMap.enabled=true;
+// Ήπια συμπίεση μόνο στα πολύ φωτεινά (π.χ. ηλιόφως): κάτω από 0.75 το χρώμα μένει ίδιο, πάνω από αυτό πλησιάζει ομαλά το λευκό χωρίς να «καίγεται».
+THREE.ShaderChunk.tonemapping_pars_fragment=THREE.ShaderChunk.tonemapping_pars_fragment.replace('vec3 CustomToneMapping( vec3 color ) { return color; }','vec3 CustomToneMapping( vec3 color ) { color*=toneMappingExposure; float m=max(color.r,max(color.g,color.b)); if(m<=0.75) return color; float k=0.75+0.25*(1.0-exp(-(m-0.75)/0.25)); return color*(k/m); }');R.shadowMap.type=THREE.PCFSoftShadowMap;R.shadowMap.autoUpdate=false;
 const S=new THREE.Scene();S.background=new THREE.Color(0xdfe6ec);
 const cam=new THREE.PerspectiveCamera(70,1,0.05,100);cam.rotation.order='YXZ';
 const hemi=new THREE.HemisphereLight(0xffffff,0xd8d0c4,0.95);S.add(hemi);
 const amb=new THREE.AmbientLight(0xfff1e0,0.1);S.add(amb);
+if(THREE.RectAreaLightUniformsLib)THREE.RectAreaLightUniformsLib.init();
+// Ζώνες φωτός: ορθογώνια [x1,z1,x2,z2] ανά χώρο. Το φως ενός χώρου (λεντοταινίες, φως από παράθυρα) δεν περνάει τους τοίχους προς άλλη ζώνη.
+const ZR=[
+[[.27,.62,3.33,7.45],[3.33,4.02,4.39,7.62],[2.84,7.62,4.39,9.34],[4.39,4.02,8.53,4.92],[4.39,4.92,5.52,5.79],[7.69,4.92,8.53,5.62]],
+[[3.48,.62,7.54,3.88]],[[7.69,.62,10.71,3.88]],[[4.57,5.92,7.54,9.34],[5.66,5.07,7.54,5.92]],[[8.65,4.02,10.71,5.62]],[[1.67,7.62,2.72,9.34]]];
+// Ανοίγματα προς τα έξω: εσωτερική παρειά [x1,z1,x2,z2], ζώνη, κάθετος προς τα έξω, ύψη, b=μπαλκονόπορτα (στηθαίο/πρόβολος)
+const WINS=[
+{s:[1.41,.62,3.11,.62],z:0,n:[0,-1],y1:0,y2:2.4,b:1},{s:[4.60,.62,6.30,.62],z:1,n:[0,-1],y1:0,y2:2.2,b:1},{s:[7.85,.62,9.55,.62],z:2,n:[0,-1],y1:0,y2:2.2,b:1},
+{s:[.5,7.45,1.3,7.45],z:0,n:[0,1],y1:.9,y2:2.2,b:0},{s:[7.54,6.75,7.54,8.45],z:3,n:[1,0],y1:0,y2:2.2,b:0}];
+const RAU={raWs:{value:WINS.map(w=>new THREE.Vector4(w.s[0],w.s[1],w.s[2],w.s[3]))},raWc:{value:WINS.map(()=>new THREE.Vector3())},raOut:{value:new THREE.Vector3()}};
+const strips=[];let raFrag=null;const ZV=['a.x','a.y','a.z','b.x','b.y','b.z'];
+function raGLSL(){const f=v=>(+v).toFixed(3),N=WINS.length;let g='varying vec3 vRaW;\nuniform vec4 raWs['+N+'];\nuniform vec3 raWc['+N+'];\nuniform vec3 raOut;\nfloat raB(vec2 p,vec4 r){vec2 d=max(r.xy-p,p-r.zw);return 1.0-smoothstep(0.02,0.12,length(max(d,vec2(0.0))));}\n';
+ZR.forEach((rs,k)=>{g+='float raZ'+k+'(vec2 p){float m=0.0;'+rs.map(r=>'m=max(m,raB(p,vec4('+r.map(f).join(',')+')));').join('')+'return m;}\n';});
+g+='float raLM(int i,vec3 a,vec3 b){'+strips.map((s,i)=>'if(i=='+i+')return '+ZV[s.z]+';').join('')+'return 1.0;}\n';
+g+='vec3 raAmb(vec2 p,vec3 a,vec3 b){vec3 c=vec3(0.0);vec2 ab;float t,d;'+WINS.map((w,k)=>'ab=raWs['+k+'].zw-raWs['+k+'].xy;t=clamp(dot(p-raWs['+k+'].xy,ab)/max(dot(ab,ab),1e-4),0.0,1.0);d=length(p-raWs['+k+'].xy-ab*t);c+=raWc['+k+']*'+ZV[w.z]+'/(1.0+0.22*d*d);').join('')+'float ins=max(max(a.x,a.y),max(max(a.z,b.x),max(b.y,b.z)));return c+raOut*(1.0-ins);}\n';return g;}
+function raPatch(sh){Object.assign(sh.uniforms,RAU);if(!raFrag)raFrag=raGLSL();
+sh.vertexShader='varying vec3 vRaW;\n'+sh.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\n\tvRaW=(modelMatrix*vec4(transformed,1.0)).xyz;');
+const lb=THREE.ShaderChunk.lights_fragment_begin.replace('RE_Direct_RectArea( rectAreaLight, geometry, material, reflectedLight );','raRL.directDiffuse=vec3(0.0);raRL.directSpecular=vec3(0.0);RE_Direct_RectArea( rectAreaLight, geometry, material, raRL );raK=raLM(UNROLLED_LOOP_INDEX,raMa,raMb);reflectedLight.directDiffuse+=raRL.directDiffuse*raK;reflectedLight.directSpecular+=raRL.directSpecular*raK;')
+.replace('irradiance += getLightProbeIrradiance( lightProbe, geometry );','irradiance += getLightProbeIrradiance( lightProbe, geometry );\n\tirradiance += raAmb(vRaW.xz,raMa,raMb)*PI;');
+sh.fragmentShader=sh.fragmentShader.replace('void main() {',raFrag+'void main() {').replace('#include <lights_fragment_begin>','vec3 raMa=vec3(raZ0(vRaW.xz),raZ1(vRaW.xz),raZ2(vRaW.xz));vec3 raMb=vec3(raZ3(vRaW.xz),raZ4(vRaW.xz),raZ5(vRaW.xz));ReflectedLight raRL;float raK;\n'+lb);}
 function mk2(W,Hh,draw){const c=document.createElement('canvas');c.width=W;c.height=Hh;draw(c.getContext('2d'),W,Hh);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;return t;}
 const tZ=mk2(256,512,(g,W,Hh)=>{g.fillStyle='#a1988d';g.fillRect(0,0,W,Hh);for(let i=0;i<6000;i++){g.fillStyle=Math.random()<0.5?'rgba(80,70,60,0.08)':'rgba(255,250,240,0.08)';const s=1+Math.random()*4;g.fillRect(Math.random()*W,Math.random()*Hh,s,s);}g.fillStyle='rgba(70,62,55,0.5)';for(let k=0;k<2;k++){g.fillRect(k*128,0,2,Hh);const o=k?85:0;g.fillRect(k*128,o,128,2);g.fillRect(k*128,o+256,128,2);}});
 const skirtTex=mk2(512,48,g=>{g.fillStyle='#a1988d';g.fillRect(0,0,512,48);for(let i=0;i<900;i++){g.fillStyle=Math.random()<0.5?'rgba(80,70,60,0.1)':'rgba(255,250,240,0.1)';const s=1+Math.random()*3;g.fillRect(Math.random()*512,Math.random()*48,s,s);}g.fillStyle='rgba(70,62,55,0.55)';g.fillRect(0,0,3,48);g.fillStyle='rgba(255,255,255,0.18)';g.fillRect(0,0,512,3);});
-const tO=mk2(256,256,g=>{g.fillStyle='#cfc9bf';g.fillRect(0,0,256,256);g.fillStyle='#a39b8e';g.fillRect(0,0,256,4);g.fillRect(0,0,4,256);});
-const relief=mk2(256,256,g=>{g.fillStyle='#ebe7df';g.fillRect(0,0,256,256);for(let x=0;x<256;x+=16){g.fillStyle='rgba(120,110,95,0.28)';g.fillRect(x,0,3,256);g.fillStyle='rgba(255,255,255,0.65)';g.fillRect(x+4,0,3,256);}g.fillStyle='rgba(120,110,95,0.35)';g.fillRect(0,0,256,2);g.fillRect(0,0,2,256);});
-const bathATex=mk2(256,256,g=>{g.fillStyle='#dcd6cc';g.fillRect(0,0,256,256);for(let i=0;i<2500;i++){g.fillStyle=Math.random()<0.5?'rgba(120,110,95,0.06)':'rgba(255,255,255,0.1)';g.fillRect(Math.random()*256,Math.random()*256,3,3);}g.fillStyle='rgba(150,140,125,0.7)';g.fillRect(0,0,256,3);g.fillRect(0,0,3,256);});
+// Όλα τα πλακάκια είναι 60×120: κάθε υφή πλακιδίου είναι ένα πλακάκι 256×512 με αρμό πάνω και αριστερά.
+const tO=mk2(256,512,g=>{g.fillStyle='#cfc9bf';g.fillRect(0,0,256,512);for(let i=0;i<2500;i++){g.fillStyle=Math.random()<0.5?'rgba(110,100,85,0.06)':'rgba(255,255,255,0.08)';g.fillRect(Math.random()*256,Math.random()*512,3,3);}g.fillStyle='#a39b8e';g.fillRect(0,0,256,3);g.fillRect(0,0,3,512);});
+const relief=mk2(256,512,g=>{g.fillStyle='#ebe7df';g.fillRect(0,0,256,512);for(let x=0;x<256;x+=16){g.fillStyle='rgba(120,110,95,0.28)';g.fillRect(x,0,3,512);g.fillStyle='rgba(255,255,255,0.65)';g.fillRect(x+4,0,3,512);}g.fillStyle='rgba(120,110,95,0.35)';g.fillRect(0,0,256,2);g.fillRect(0,0,2,512);});
+const bathATex=mk2(256,512,g=>{g.fillStyle='#dcd6cc';g.fillRect(0,0,256,512);for(let i=0;i<5000;i++){g.fillStyle=Math.random()<0.5?'rgba(120,110,95,0.06)':'rgba(255,255,255,0.1)';g.fillRect(Math.random()*256,Math.random()*512,3,3);}g.fillStyle='rgba(150,140,125,0.7)';g.fillRect(0,0,256,2);g.fillRect(0,0,2,512);});
 const marble=mk2(512,512,g=>{g.fillStyle='#e9e5df';g.fillRect(0,0,512,512);g.lineWidth=2;for(let i=0;i<9;i++){g.strokeStyle='rgba(130,128,125,'+(0.15+Math.random()*0.25)+')';g.beginPath();let x=Math.random()*512,y=0;g.moveTo(x,y);for(let k=0;k<6;k++){g.quadraticCurveTo(x+(Math.random()-0.5)*160,y+50,x+(Math.random()-0.5)*120,y+90);x+=(Math.random()-0.5)*120;y+=90;}g.stroke();}});
 const sunset=mk2(256,144,g=>{const gr=g.createLinearGradient(0,0,0,144);gr.addColorStop(0,'#28324d');gr.addColorStop(0.45,'#c9735a');gr.addColorStop(0.55,'#f0a060');gr.addColorStop(0.58,'#3a3f55');gr.addColorStop(1,'#141826');g.fillStyle=gr;g.fillRect(0,0,256,144);g.fillStyle='#1c1f2a';g.beginPath();g.moveTo(120,84);g.lineTo(170,70);g.lineTo(256,66);g.lineTo(256,144);g.lineTo(150,144);g.fill();});
 const linenTex=mk2(256,64,g=>{for(let x=0;x<256;x+=16){g.fillStyle='#f4efe6';g.fillRect(x,0,10,64);g.fillStyle='#e3dbcd';g.fillRect(x+10,0,6,64);}});
@@ -121,10 +167,10 @@ const rugTex=mk2(256,256,g=>{g.fillStyle='#e6dccb';g.fillRect(0,0,256,256);for(l
 const artTex=mk2(320,224,g=>{g.fillStyle='#efe9df';g.fillRect(0,0,320,224);g.fillStyle='#6b7a35';g.beginPath();g.arc(120,120,62,0,Math.PI*2);g.fill();g.fillStyle='#c08a65';g.beginPath();g.arc(200,140,48,Math.PI,0);g.fill();g.fillRect(152,140,96,40);g.strokeStyle='#3a362f';g.lineWidth=3;g.beginPath();g.moveTo(60,60);g.quadraticCurveTo(170,20,270,80);g.stroke();});
 const balloonTex=mk2(512,128,g=>{g.fillStyle='#c2bdb5';g.fillRect(0,0,512,128);const cs=['#c08a65','#8fa35c','#d9b35a','#7f9bb3','#c98f9a'];for(let i=0;i<5;i++){const x=52+i*102,y=44+(i%2)*10;g.strokeStyle='#6e675d';g.lineWidth=1.5;g.beginPath();g.moveTo(x-12,y+16);g.lineTo(x-4,y+38);g.moveTo(x+12,y+16);g.lineTo(x+4,y+38);g.stroke();g.fillStyle=cs[i];g.beginPath();g.ellipse(x,y,17,21,0,0,Math.PI*2);g.fill();g.beginPath();g.moveTo(x-13,y+12);g.lineTo(x+13,y+12);g.lineTo(x,y+26);g.fill();g.fillStyle='#8a6a4a';g.fillRect(x-5,y+38,10,8);}});
 const codeTex=mk2(256,160,g=>{g.fillStyle='#1e1f29';g.fillRect(0,0,256,160);const cs=['#c678dd','#61afef','#98c379','#e5c07b','#abb2bf','#e06c75'];for(let y=8;y<152;y+=9){let x=8+Math.floor(Math.random()*4)*10;const n=1+Math.floor(Math.random()*4);for(let k=0;k<n&&x<240;k++){const w=12+Math.random()*50;g.fillStyle=cs[Math.floor(Math.random()*cs.length)];g.fillRect(x,y,Math.min(w,248-x),4);x+=w+6;}}});
-const mat=o=>new THREE.MeshStandardMaterial(Object.assign({roughness:0.85,metalness:0},o));
+const mat=o=>{const m=new THREE.MeshStandardMaterial(Object.assign({roughness:0.85,metalness:0},o));m.onBeforeCompile=raPatch;return m;};
 const mWall=mat({color:0xd7d2c9}),mGlass=mat({color:0xbfe0ee,transparent:true,opacity:0.3,roughness:0.1}),mPVC=mat({color:0xf8f8f6}),mDoor=mat({color:0xa19e97}),mFront=mat({color:0x5b5650}),mChrome=mat({color:0xa6acb2,roughness:0.35}),mWhite=mat({color:0xffffff,roughness:0.4}),mSlab=mat({color:0x9c9388}),mMirror=mat({color:0xcfe3ea,roughness:0.15});
 const mCab=mat({color:0xd9cbb6}),mSeam=mat({color:0xa89a85}),mPlinth=mat({color:0x9d917f}),mSteel=mat({color:0xbfc3c6,roughness:0.35}),mBlack=mat({color:0x1d1d1f,roughness:0.3}),mTable=mat({color:0xefebe5});
-const mTvc=mat({color:0xd7d2c9}),mTvSeam=mat({color:0xbab4a9}),mLED=new THREE.MeshBasicMaterial({color:0xffd59a}),mStrip=new THREE.MeshBasicMaterial({color:0xfff3e0}),mCeil=mat({color:0xffffff,emissive:0x8a8a8a});
+const mTvc=mat({color:0xd7d2c9}),mTvSeam=mat({color:0xbab4a9}),mLED=new THREE.MeshBasicMaterial({color:0xffd59a,toneMapped:false}),mStrip=new THREE.MeshBasicMaterial({color:0xfff3e0,toneMapped:false}),mCeil=mat({color:0xffffff,emissive:0x8a8a8a});
 const fab=mat({color:0xd9ccb6,roughness:0.95}),fab2=mat({color:0xe3d8c5,roughness:0.95}),olive=mat({color:0x6b7a35,roughness:0.95}),olive2=mat({color:0x58662b,roughness:0.95}),mOak=mat({color:0xb48a5e,roughness:0.7}),mBark=mat({color:0x6e5a46}),mStone=mat({color:0xcdc3b4,roughness:0.6}),mTerra=mat({color:0xc08a65}),mLeaf=mat({color:0x7d8c4c,roughness:0.9,flatShading:true}),mShade=mat({color:0xf3ece0,emissive:0x000000}),mLinen=mat({map:linenTex,transparent:true,opacity:0.88,side:THREE.DoubleSide}),mRug=mat({map:rugTex,roughness:1}),mArt=mat({map:artTex}),mMarbleT=mat({map:marble,roughness:0.3}),mLemon=mat({color:0xe6c84a,roughness:0.6});
 const mWhiteF=mat({color:0xf6f4f0,roughness:0.6}),mBlue=mat({color:0x9fb8c8,roughness:0.95}),mSage=mat({color:0xb5c49c,roughness:0.95}),mGreyBed=mat({color:0x8a8d91,roughness:0.95}),mLinenW=mat({color:0xeeeae4,roughness:0.95}),mGreyL=mat({color:0x8f9297,roughness:0.5}),mDark=mat({color:0x3a3b3e,roughness:0.8}),mWard=mat({color:0xe4e0d8,roughness:0.7}),mPend=mat({map:balloonTex,side:THREE.DoubleSide}),mCode=new THREE.MeshBasicMaterial({map:codeTex});
 const cols=[];
@@ -150,11 +196,12 @@ function floor(x1,z1,x2,z2,t,su,sv,d){const w=x2-x1,dd=z2-z1,g=new THREE.PlaneGe
 function toilet(cx,cz){const b=new THREE.Mesh(new THREE.CylinderGeometry(0.19,0.15,0.22,24),mWhite);b.scale.z=1.4;b.position.set(cx,0.31,cz);S.add(b);}
 const slabs={counter:[],splash:[],bathA:[],bathB:[]},defs={counter:marble,splash:marble,bathA:bathATex,bathB:relief};
 function setMap(e,base){const t=base.clone();t.needsUpdate=true;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(e.rx,e.ry);e.m.map=t;if(e.em)e.m.emissiveMap=t;e.m.needsUpdate=true;}
-function slab(list,Sz,face,x1,z1,x2,z2,y1,y2,col){const m=mat({roughness:list==='bathB'||face==='top'?0.6:0.35,color:col||0xffffff});box(x1,z1,x2,z2,y1,y2,m,0);let rx,ry;if(face==='top'){rx=(x2-x1)/Sz;ry=(z2-z1)/Sz;}else if(face==='z'){rx=(x2-x1)/Sz;ry=(y2-y1)/Sz;}else{rx=(z2-z1)/Sz;ry=(y2-y1)/Sz;}const e={m:m,rx:rx,ry:ry,em:list==='splash'};slabs[list].push(e);setMap(e,defs[list]);}
+const TILE={bathA:[0.6,1.2],bathB:[0.6,1.2]};
+function slab(list,Sz,face,x1,z1,x2,z2,y1,y2,col){const m=mat({roughness:list==='bathB'||face==='top'?0.6:0.35,color:col||0xffffff});box(x1,z1,x2,z2,y1,y2,m,0);const T=TILE[list]||[Sz,Sz];let rx,ry;if(face==='top'){rx=(x2-x1)/T[0];ry=(z2-z1)/T[1];}else if(face==='z'){rx=(x2-x1)/T[0];ry=(y2-y1)/T[1];}else{rx=(z2-z1)/T[0];ry=(y2-y1)/T[1];}const e={m:m,rx:rx,ry:ry,em:list==='splash'};slabs[list].push(e);setMap(e,defs[list]);}
 const TOP=0xebebeb;
 box(0,-1.03,10.97,9.5,-0.08,0,mSlab,0);
 const rooms=[['Σαλόνι / κουζίνα',[[.27,.62,3.33,7.45]],'z'],['Δωμάτιο 1',[[3.48,.62,7.54,3.88]],'z'],['Δωμάτιο 2',[[7.69,.62,10.71,3.88]],'z'],['Χωλ',[[3.33,4.02,4.39,7.62],[2.84,7.62,4.39,9.34]],'z'],['Διάδρομος',[[4.39,4.02,8.53,4.92],[4.39,4.92,5.52,5.79],[7.69,4.92,8.53,5.62]],'z'],['WC',[[1.67,7.62,2.72,9.34]],'n'],['Δωμάτιο 3',[[4.57,5.92,7.54,9.34],[5.66,5.07,7.54,5.92]],'z'],['Μπάνιο',[[8.65,4.02,10.71,5.62]],'n'],['Μπαλκόνι',[[.27,0,10.71,.35],[1.10,-.89,9.89,0]],'b']];
-rooms.forEach(r=>r[1].forEach(q=>{if(r[2]==='z')floor(q[0],q[1],q[2],q[3],tZ,1.2,2.4,1);else if(r[2]==='b')floor(q[0],q[1],q[2],q[3],tO,0.4,0.4,0);}));
+rooms.forEach(r=>r[1].forEach(q=>{if(r[2]==='z')floor(q[0],q[1],q[2],q[3],tZ,1.2,2.4,1);else if(r[2]==='b')floor(q[0],q[1],q[2],q[3],tO,0.6,1.2,0);}));
 wall('x',.35,.62,0,10.97,[{a:1.41,b:3.11,t:2.4,g:'half'},{a:4.60,b:6.30,t:2.2,g:'half'},{a:7.85,b:9.55,t:2.2,g:'half'}],2);
 wall('z',0,.27,0.35,7.62,[],2);wall('z',0,.27,0,0.35,[],0);wall('z',10.71,10.97,0,5.77,[],1);
 wall('z',3.33,3.48,.62,4.02,[],3);wall('z',7.54,7.69,.62,4.02,[],3);
@@ -270,23 +317,40 @@ mesh(SPH,mLinenW,5.65,0.7,9.0,0.3,0.08,0.14);mesh(SPH,mLinenW,6.45,0.7,9.0,0.3,0
 [[4.72,5.17],[6.93,7.38]].forEach(n=>{box(n[0],8.85,n[1],9.30,0,0.5,mOak,1);const cx=(n[0]+n[1])/2;mesh(CYL,mStone,cx,0.6,9.08,0.05,0.2,0.05);mesh(CYL,mShade,cx,0.78,9.08,0.1,0.14,0.1);});
 box(5.70,5.10,7.50,5.70,0,2.5,mWard,1);[6.3,6.9].forEach(x=>box(x-0.002,5.70,x+0.002,5.704,0,2.5,mSeam,0));
 box(4.9,7.0,7.2,8.9,0.004,0.014,mat({color:0xcfc8bd,roughness:1}),0);
-function hs(z,x1,x2){box(x1,z-0.02,x2,z+0.02,2.792,2.799,mStrip,0);}function vs(x,z1,z2){box(x-0.02,z1,x+0.02,z2,2.792,2.799,mStrip,0);}
+// Λεντοταινίες: κάθε γραμμή είναι μία ενιαία γραμμική πηγή (RectAreaLight) σε όλο της το μήκος, περιορισμένη στη ζώνη της.
+const LEDI=90,CABI=110;
+function stripL(x,y,z,w,h,zn,int){const l=new THREE.RectAreaLight(0xffffff,int,w,h);l.position.set(x,y,z);l.rotation.x=-Math.PI/2;S.add(l);strips.push({l:l,i:int,z:zn});}
+function hs(z,x1,x2,zn){box(x1,z-0.02,x2,z+0.02,2.792,2.799,mStrip,0);stripL((x1+x2)/2,2.789,z,x2-x1,0.04,zn||0,LEDI);}function vs(x,z1,z2,zn){box(x-0.02,z1,x+0.02,z2,2.792,2.799,mStrip,0);stripL(x,2.789,(z1+z2)/2,0.04,z2-z1,zn||0,LEDI);}
 hs(1.10,0.92,2.51);vs(0.92,1.10,3.61);vs(2.51,1.44,3.57);hs(3.57,1.34,2.53);
 hs(5.49,1.21,2.53);vs(2.51,5.49,6.50);vs(0.94,5.45,6.75);hs(6.75,0.94,2.55);
 hs(4.47,4.01,7.90);vs(3.95,4.74,8.80);
-hs(4.38,8.90,10.33);vs(8.90,4.38,5.14);vs(2.32,7.75,8.75);
+hs(4.38,8.90,10.33,4);vs(8.90,4.38,5.14,4);vs(2.32,7.75,8.75,5);
+stripL(2.04,1.43,7.115,1.38,0.03,0,CABI);stripL(0.605,1.43,6.125,0.03,1.95,0,CABI);
 const ceil=new THREE.Mesh(new THREE.PlaneGeometry(10.97,9.15),mCeil);ceil.rotation.x=Math.PI/2;ceil.position.set(5.485,H,4.925);S.add(ceil);
 const spots=[];
 function spot(x,y,z,ang,int,dist,shadow,tx,ty,tz){const s=new THREE.SpotLight(0xffffff,int,dist,ang,0.9,1.5);s.position.set(x,y,z);s.target.position.set(tx,ty,tz);S.add(s);S.add(s.target);if(shadow){s.castShadow=true;s.shadow.mapSize.set(512,512);s.shadow.camera.near=0.03;s.shadow.camera.far=dist;s.shadow.bias=-0.002;}spots.push({l:s,i:int});}
 function pLight(x,y,z,int,dist,shadow){const p=new THREE.PointLight(0xffffff,int,dist,1.5);p.position.set(x,y,z);if(shadow){p.castShadow=true;p.shadow.mapSize.set(256,256);p.shadow.camera.near=0.05;p.shadow.camera.far=dist;p.shadow.bias=-0.003;}S.add(p);spots.push({l:p,i:int});}
-spot(1.72,2.72,2.35,1.15,2.0,7,true,1.72,0,2.35);spot(1.72,2.72,6.1,1.1,1.6,7,true,1.72,0,6.1);
-spot(5.95,2.72,4.47,1.1,1.6,7,true,5.95,0,4.47);spot(3.95,2.72,6.8,1.1,1.7,7,true,3.95,0,6.8);
-spot(2.04,1.40,7.22,1.25,1.0,1.4,true,2.04,0.9,7.32);
-spot(0.48,1.40,5.75,1.2,0.8,1.4,false,0.55,0.9,5.75);spot(0.48,1.40,6.65,1.2,0.8,1.4,false,0.55,0.9,6.65);
-pLight(9.55,2.6,4.7,1.0,4,true);pLight(2.32,2.6,8.25,0.9,3.5,true);
+// Αδύναμα φώτα με σκιές κάτω από τις λεντοταινίες: δίνουν μόνο σκιές επαφής, το κύριο φως είναι οι ίδιες οι ταινίες.
+const FILL=0.25;
+spot(1.72,2.72,2.35,1.15,2.0*FILL,7,true,1.72,0,2.35);spot(1.72,2.72,6.1,1.1,1.6*FILL,7,true,1.72,0,6.1);
+spot(5.95,2.72,4.47,1.1,1.6*FILL,7,true,5.95,0,4.47);spot(3.95,2.72,6.8,1.1,1.7*FILL,7,true,3.95,0,6.8);
+pLight(9.55,2.6,4.7,1.0*FILL,4,true);pLight(2.32,2.6,8.25,0.9*FILL,3.5,true);
 pLight(2.85,1.25,2.32,0.7,1.6,false);pLight(5.51,2.12,2.25,1.0,6,true);pLight(9.2,2.55,2.25,1.0,6,true);pLight(6.05,2.55,7.4,1.0,6,true);
+// Ήλιος: κατευθυντικό φως με σκιές, μπαίνει από μπαλκονόπορτες και παράθυρα.
+const sun=new THREE.DirectionalLight(0xffffff,0);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);{const c=sun.shadow.camera;c.left=-8.5;c.right=8.5;c.top=8.5;c.bottom=-8.5;c.near=1;c.far=70;}
+sun.shadow.bias=-0.0004;sun.shadow.normalBias=0.025;sun.target.position.set(5.5,0,4.2);S.add(sun);S.add(sun.target);
 S.traverse(o=>{if(o.isMesh){const bm=o.material&&o.material.isMeshBasicMaterial;const tr=o.material&&o.material.transparent;o.castShadow=!bm&&!tr&&o!==ceil&&!o.userData.ns;o.receiveShadow=!bm;}});
+// Αόρατα σώματα που ρίχνουν μόνο σκιά: η πλάκα της οροφής και (προαιρετικά) ο πρόβολος του μπαλκονιού του από πάνω ορόφου.
+const mNone=new THREE.MeshBasicMaterial({colorWrite:false,depthWrite:false});
+function caster(x1,z1,x2,z2,y1,y2){const m=new THREE.Mesh(new THREE.BoxGeometry(x2-x1,y2-y1,z2-z1),mNone);m.position.set((x1+x2)/2,(y1+y2)/2,(z1+z2)/2);m.castShadow=true;m.receiveShadow=false;S.add(m);return m;}
+caster(0,0.35,10.97,9.5,2.8,3.0);
+const ovh=[caster(1.0,-1.03,9.99,0.35,2.8,3.0),caster(0.27,-0.12,10.71,0.35,2.8,3.0)];ovh.forEach(o=>{o.visible=false;});
+// Μόνο ο χάρτης σκιάς του ήλιου ξαναϋπολογίζεται όταν αλλάζει η ώρα (οι υπόλοιποι είναι στατικοί).
+const smR=R.shadowMap.render;let sunOnly=false;R.shadowMap.render=function(ls,sc,cm){smR.call(this,sunOnly?ls.filter(l=>l===sun):ls,sc,cm);sunOnly=false;};
+function markSun(){if(!R.shadowMap.needsUpdate)sunOnly=true;R.shadowMap.needsUpdate=true;}
 R.shadowMap.needsUpdate=true;
+const cmpTex=mk2(256,256,g=>{g.fillStyle='rgba(255,255,255,0.92)';g.beginPath();g.arc(128,128,122,0,Math.PI*2);g.fill();g.strokeStyle='#8a7d6b';g.lineWidth=4;g.stroke();g.fillStyle='#D85A30';g.beginPath();g.moveTo(128,62);g.lineTo(156,132);g.lineTo(100,132);g.fill();g.fillStyle='#b8b0a4';g.beginPath();g.moveTo(128,206);g.lineTo(156,132);g.lineTo(100,132);g.fill();});
+const compass=new THREE.Group(),cmpM=new THREE.Mesh(new THREE.PlaneGeometry(1.8,1.8),new THREE.MeshBasicMaterial({map:cmpTex,transparent:true,depthTest:false}));cmpM.rotation.x=-Math.PI/2;cmpM.renderOrder=10;compass.add(cmpM);const cmpL=(()=>{const c=document.createElement('canvas');c.width=c.height=64;const g=c.getContext('2d');g.fillStyle='#2c2c2a';g.font='bold 46px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText('Β',32,34);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));s.scale.set(0.5,0.5,1);s.renderOrder=11;s.position.set(0,0.01,-0.62);return s;})();compass.add(cmpL);compass.position.set(10.2,3.2,-2.2);compass.visible=false;S.add(compass);
 const RTC=(R.capabilities.isWebGL2&&THREE.WebGLMultisampleRenderTarget)?THREE.WebGLMultisampleRenderTarget:THREE.WebGLRenderTarget;
 const rt=new RTC(2,2,{minFilter:THREE.LinearFilter,magFilter:THREE.LinearFilter});if(rt.samples!==undefined)rt.samples=4;
 const fq=new THREE.Scene(),fcam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
@@ -300,12 +364,47 @@ function rtSize(){const w=wrap.clientWidth||window.innerWidth,h=wrap.clientHeigh
 function setFov(noResize){if(fovState){const ar=cam.aspect,rm=Math.sqrt(ar*ar+1),thf=Math.tan(thD)/rm*1.02;cam.fov=2*Math.atan(thf)*180/Math.PI;fmat.uniforms.aspect.value=ar;fmat.uniforms.rmax.value=rm;fmat.uniforms.thf.value=thf;fmat.uniforms.thD.value=thD;}else cam.fov=70;cam.updateProjectionMatrix();if(!noResize)rtSize();}
 function kelvin(K){const t=K/100;let r,g,b;if(t<=66){r=255;g=99.4708025861*Math.log(t)-161.1195681661;b=t<=19?0:138.5177312231*Math.log(t-10)-305.0447927307;}else{r=329.698727446*Math.pow(t-60,-0.1332047592);g=288.1221695283*Math.pow(t-60,-0.0755148492);b=255;}const c=v=>Math.max(0,Math.min(255,v))/255;return new THREE.Color(c(r),c(g),c(b));}
 let night=false,dimV=80,kelV=3000;const offC=new THREE.Color(0xd6d6d6),WHT=new THREE.Color(1,1,1);
-function update(){const d=dimV/100,col=kelvin(kelV),lc=WHT.clone().lerp(col,0.8);hemi.intensity=night?0.06:0.95;amb.intensity=night?0.04+0.1*d:0.1;S.background.set(night?0x0e1118:0xdfe6ec);mCeil.emissive.set(night?0x000000:0x8a8a8a);
-spots.forEach(s=>{s.l.intensity=s.i*d;s.l.color.copy(lc);});const sc=WHT.clone().lerp(col,0.55),strip=offC.clone().lerp(sc,d>0?0.4+0.6*d:0);mStrip.color.copy(strip);mLED.color.copy(strip);
+// ---- Ήλιος: θέση από γεωγραφικό πλάτος/μήκος, ημερομηνία και ώρα (αλγόριθμος NOAA) ----
+const DEG=Math.PI/180,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),sstep=(a,b,v)=>{const t=clamp((v-a)/(b-a),0,1);return t*t*(3-2*t);};
+const site={lat:37.9838,lon:23.7275,ori:180,ovh:false};let tMin=720,doy=172,wx=0,sunSt=null,playing=false,prevT=null;
+const YR=new Date().getFullYear(),doyOf=dt=>Math.round((Date.UTC(dt.getUTCFullYear(),dt.getUTCMonth(),dt.getUTCDate())-Date.UTC(dt.getUTCFullYear(),0,1))/864e5)+1;
+function lastSun(m){const d=new Date(Date.UTC(YR,m+1,0));d.setUTCDate(d.getUTCDate()-d.getUTCDay());return doyOf(d);}
+const DST=[lastSun(2),lastSun(9)];doy=Math.min(365,doyOf(new Date()));
+// Ζώνη ώρας από το γεωγραφικό μήκος, με θερινή ώρα για την Ευρώπη.
+function tzOf(){let tz=Math.round(site.lon/15);if(site.lat>=30&&site.lat<=72&&site.lon>=-25&&site.lon<=45&&doy>=DST[0]&&doy<DST[1])tz+=1;return tz;}
+function sunAt(m){const tz=tzOf(),g=2*Math.PI/365*(doy-1+(m/60-12)/24);
+const eq=229.18*(0.000075+0.001868*Math.cos(g)-0.032077*Math.sin(g)-0.014615*Math.cos(2*g)-0.040849*Math.sin(2*g));
+const de=0.006918-0.399912*Math.cos(g)+0.070257*Math.sin(g)-0.006758*Math.cos(2*g)+0.000907*Math.sin(2*g)-0.002697*Math.cos(3*g)+0.00148*Math.sin(3*g);
+const ha=((m+eq+4*site.lon-60*tz)/4-180)*DEG,la=site.lat*DEG;
+const el=Math.asin(clamp(Math.sin(la)*Math.sin(de)+Math.cos(la)*Math.cos(de)*Math.cos(ha),-1,1));
+const az=Math.atan2(Math.sin(ha),Math.cos(ha)*Math.sin(la)-Math.tan(de)*Math.cos(la))+Math.PI;
+return {el:el/DEG,az:(az/DEG+360)%360,tz:tz};}
+const SKYD=new THREE.Color(0xc4d8ee),SKYO=new THREE.Color(0xd0d3d7),SKYT=new THREE.Color(0xe9b48a),SKYN=new THREE.Color(0x0e1118),sunDir=new THREE.Vector3();
+function update(){const d=dimV/100,col=kelvin(kelV),lc=WHT.clone().lerp(col,0.8);
+const sp=sunAt(tMin);sunSt=sp;const el=sp.el,cl=wx/100;
+const dayF=sstep(-7,5,el),up=sstep(-0.5,2.5,el);
+const sunI=1.45*up*Math.pow(1-cl,1.6)*(0.35+0.65*sstep(0,30,el));
+const sunC=kelvin(1900+3700*sstep(0,40,el)).lerp(WHT,0.15);
+const skyI=dayF*(1-0.45*cl);
+const skyC=SKYD.clone().lerp(SKYO,cl).lerp(SKYT,(1-cl)*(1-sstep(0,14,el))*sstep(-7,0,el)*0.8);
+night=dayF<0.2;
+// Κατεύθυνση προς τον ήλιο στο σύστημα του σπιτιού: τα μπαλκόνια (-z) κοιτάνε προς site.ori, το +x είναι 90° δεξιόστροφα.
+const dA=(sp.az-site.ori)*DEG,ce=Math.cos(el*DEG);sunDir.set(Math.sin(dA)*ce,Math.sin(el*DEG),-Math.cos(dA)*ce);
+sun.position.copy(sun.target.position).addScaledVector(sunDir,30);sun.intensity=sunI;sun.color.copy(sunC);markSun();
+// Φως ουρανού και αντανάκλαση του ήλιου από κάθε άνοιγμα προς το δωμάτιό του (έμμεσος φωτισμός).
+WINS.forEach((w,k)=>{const len=Math.hypot(w.s[2]-w.s[0],w.s[3]-w.s[1]),A=len*(w.y2-w.y1),ci=Math.max(0,sunDir.x*w.n[0]+sunDir.z*w.n[1]);let fr=0;
+if(ci>0.001&&sunDir.y>0){fr=1;if(w.b){const tp=sunDir.y/ci,top=w.y2,hi=site.ovh?Math.min(top,2.8-1.38*tp):top,lo=Math.max(0,1-1.38*tp);fr=clamp((hi-lo)/top,0,1);}}
+const sk=skyI*A*0.04,sb=sunI*A*ci*fr*0.022;RAU.raWc.value[k].set(skyC.r*sk+sunC.r*sb,skyC.g*sk+sunC.g*sb,skyC.b*sk+sunC.b*sb);});
+RAU.raOut.value.set(skyC.r,skyC.g,skyC.b).multiplyScalar(skyI*0.6);
+hemi.color.copy(skyC).lerp(WHT,0.5);hemi.intensity=0.05+0.38*skyI;amb.intensity=0.03+0.09*d*(1-dayF)+0.04*dayF;
+S.background.copy(SKYN).lerp(skyC,dayF);mCeil.emissive.setRGB(1,1,1).multiplyScalar(0.1*skyI+0.18*d);
+spots.forEach(s=>{s.l.intensity=s.i*d;s.l.color.copy(lc);});strips.forEach(s=>{s.l.intensity=s.i*d;s.l.color.copy(lc);});
+const sc=WHT.clone().lerp(col,0.55),strip=offC.clone().lerp(sc,d>0?0.4+0.6*d:0);mStrip.color.copy(strip);mLED.color.copy(strip);
 slabs.splash.forEach(e=>{e.m.emissive.copy(lc).multiplyScalar(0.3*d);});
-mShade.emissive.copy(col).multiplyScalar(0.55*d);mPend.emissive.copy(col).multiplyScalar(0.25*d);mGreyL.emissive.copy(col).multiplyScalar(0.18*d);}
+mShade.emissive.copy(col).multiplyScalar(0.55*d);mPend.emissive.copy(col).multiplyScalar(0.25*d);mGreyL.emissive.copy(col).multiplyScalar(0.18*d);
+nb.innerHTML=night?'<i class="ti ti-sun"></i>':'<i class="ti ti-moon"></i>';nb.setAttribute('aria-label',night?'Μέρα':'Βράδυ');}
 const nb=document.getElementById('night');
-nb.onclick=()=>{night=!night;nb.innerHTML=night?'<i class="ti ti-sun"></i>':'<i class="ti ti-moon"></i>';nb.setAttribute('aria-label',night?'Μέρα':'Βράδυ');update();};
+nb.onclick=()=>{if(!night){prevT=tMin;tMin=22*60;}else{tMin=(prevT!=null&&sunAt(prevT).el>2)?prevT:13*60;}update();sunUI();};
 const dI=document.getElementById('dim'),kI=document.getElementById('kel'),dO=document.getElementById('dimO'),kO=document.getElementById('kelO');
 dI.oninput=()=>{dimV=Math.round(+dI.value);dO.textContent=dimV+'%';update();};kI.oninput=()=>{kelV=Math.round(+kI.value);kO.textContent=kelV+'K';update();};
 const labels=[];
@@ -313,19 +412,36 @@ function label(t,x,z){const c=document.createElement('canvas');c.width=320;c.hei
 rooms.forEach(r=>{const q=r[1][0];label(r[0],(q[0]+q[2])/2,(q[1]+q[3])/2);});
 const mk=new THREE.Group(),cone=new THREE.Mesh(new THREE.ConeGeometry(0.25,0.6,16),new THREE.MeshBasicMaterial({color:0xD85A30}));cone.rotation.x=-Math.PI/2;mk.add(cone);mk.visible=false;S.add(mk);
 let msgT=0;function msg(t){info.textContent=t;msgT=performance.now()+1800;}
-function applyPhoto(img,quiet){const L=document.createElement('canvas');L.width=512;L.height=256;const lg=L.getContext('2d');if(img.width>=img.height)lg.drawImage(img,0,0,512,256);else{lg.translate(512,0);lg.rotate(Math.PI/2);lg.drawImage(img,0,0,256,512);}
-const P=document.createElement('canvas');P.width=256;P.height=512;const pg=P.getContext('2d');pg.translate(256,0);pg.rotate(Math.PI/2);pg.drawImage(L,0,0);
-const nZ=mk2(512,1024,g=>{for(let k=0;k<2;k++){const o=k?170:0;for(let y=o-512;y<1024;y+=512){g.drawImage(P,k*256,y,256,512);g.fillStyle='rgba(70,62,55,0.6)';g.fillRect(k*256,y,256,3);}g.fillRect(k*256,0,3,1024);}});
+// Βρίσκει πλαίσιο ενιαίου χρώματος γύρω από τη φωτογραφία (π.χ. φόντο καταλόγου) ώστε να κοπεί.
+function trimBox(img){const iw=img.width,ih=img.height,s=Math.min(1,160/Math.max(iw,ih)),w=Math.max(8,Math.round(iw*s)),h=Math.max(8,Math.round(ih*s));
+const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.drawImage(img,0,0,w,h);let D;try{D=g.getImageData(0,0,w,h).data;}catch(_){return [0,0,iw,ih];}
+const c0=[D[0],D[1],D[2]],near=i=>Math.abs(D[i]-c0[0])+Math.abs(D[i+1]-c0[1])+Math.abs(D[i+2]-c0[2])<24;
+const fr=(x0,y0,dx,dy,n)=>{let k=0;for(let j=0;j<n;j++)if(near(((y0+dy*j)*w+(x0+dx*j))*4))k++;return k/n;};
+const row=y=>fr(0,y,1,0,w),col=x=>fr(x,0,0,1,h);let t=0,b=h-1,l=0,r=w-1;
+while(t<h*0.25&&row(t)>0.96)t++;while(b>h*0.75&&row(b)>0.96)b--;while(l<w*0.25&&col(l)>0.96)l++;while(r>w*0.75&&col(r)>0.96)r--;
+if(!(t>0&&l>0&&b<h-1&&r<w-1&&row(t)<0.6&&row(b)<0.6&&col(l)<0.6&&col(r)<0.6))return [0,0,iw,ih];
+const k=1/s;return [(l+1)*k,(t+1)*k,(r-l-1)*k,(b-t-1)*k];}
+// Ένα πλακάκι W×H (με αρμό) από φωτογραφία: κόβει το πλαίσιο, το γυρίζει αν χρειάζεται και το χωράει χωρίς παραμόρφωση.
+// Αν η φωτογραφία είναι πιο κοντή από το πλακάκι (π.χ. δείγμα 60×60), τη συνεχίζει με καθρέφτισμα αντί να την τεντώσει.
+function tileCanvas(img,W,H){const [sx,sy,cw,ch]=trimBox(img),rot=(H>W)!==(ch>cw)&&Math.abs(cw-ch)/Math.max(cw,ch)>0.08,ew=rot?ch:cw,eh=rot?cw:ch;
+const E=document.createElement('canvas');E.width=W;E.height=Math.max(1,Math.round(eh*W/ew));const eg=E.getContext('2d');
+if(rot){eg.translate(W,0);eg.rotate(Math.PI/2);eg.drawImage(img,sx,sy,cw,ch,0,0,E.height,W);}else eg.drawImage(img,sx,sy,cw,ch,0,0,W,E.height);
+const O=document.createElement('canvas');O.width=W;O.height=H;const g=O.getContext('2d');
+if(E.height>=H*0.8){const s=Math.max(1,H/E.height),dw=W*s,dh=E.height*s;g.drawImage(E,(W-dw)/2,(H-dh)/2,dw,dh);}
+else{for(let y=0,k=0;y<H;y+=E.height,k++){if(k%2){g.save();g.translate(0,y+E.height);g.scale(1,-1);g.drawImage(E,0,0);g.restore();}else g.drawImage(E,0,y);}}
+const gt=Math.max(2,Math.round(W/128));g.fillStyle='rgba(70,62,55,0.55)';g.fillRect(0,0,W,gt);g.fillRect(0,0,gt,H);return O;}
+function applyPhoto(img,quiet){const P=tileCanvas(img,256,512),L=tileCanvas(img,512,256);
+const nZ=mk2(512,1024,g=>{for(let k=0;k<2;k++){const o=k?170:0;for(let y=o-512;y<1024;y+=512)g.drawImage(P,k*256,y,256,512);}});
 floorMats.forEach(m=>{m.map=nZ;m.needsUpdate=true;});
 const SK=mk2(512,48,g=>{g.drawImage(L,0,104,512,43,0,0,512,48);g.fillStyle='rgba(70,62,55,0.55)';g.fillRect(0,0,3,48);g.fillStyle='rgba(255,255,255,0.18)';g.fillRect(0,0,512,3);});skirts.forEach(e=>skirtSet(e,SK));if(!quiet)msg('Νέο δάπεδο');}
 function imgTex(img){const c=document.createElement('canvas');const s=Math.min(1,1024/Math.max(img.width,img.height));c.width=Math.max(2,Math.round(img.width*s));c.height=Math.max(2,Math.round(img.height*s));c.getContext('2d').drawImage(img,0,0,c.width,c.height);const t=new THREE.CanvasTexture(c);t.wrapS=t.wrapT=THREE.RepeatWrapping;return t;}
 const msgs={counter:'Νέος πάγκος',splash:'Νέα πλάτη',bathA:'Νέο πλακάκι μπάνιου',bathB:'Νέο ανάγλυφο'};
-function applySlab(img,list,quiet){const b=imgTex(img);slabs[list].forEach(e=>setMap(e,b));if(!quiet)msg(msgs[list]);}
+function applySlab(img,list,quiet){let b;if(TILE[list]){b=new THREE.CanvasTexture(tileCanvas(img,512,1024));b.wrapS=b.wrapT=THREE.RepeatWrapping;b.anisotropy=4;}else b=imgTex(img);slabs[list].forEach(e=>setMap(e,b));if(!quiet)msg(msgs[list]);}
 async function decodeBlob(b){if(window.createImageBitmap){try{return await createImageBitmap(b,{imageOrientation:'from-image'});}catch(_){return await createImageBitmap(b);}}return await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=rej;i.src=URL.createObjectURL(b);});}
 async function loadImg(src){const r=await fetch(src,{cache:'no-cache'});if(!r.ok)throw new Error(r.status);return decodeBlob(await r.blob());}
 const pops={};document.querySelectorAll('.pop').forEach(p=>{pops[p.id]=p;});
 function closePops(){Object.values(pops).forEach(p=>{p.style.display='none';});document.querySelectorAll('[data-pop]').forEach(b=>b.classList.remove('on'));}
-document.querySelectorAll('[data-pop]').forEach(b=>{b.onclick=()=>{const id=b.dataset.pop,p=pops[id],was=p.style.display==='block';closePops();if(!was){p.style.display='block';b.classList.add('on');if(id==='popCol'){fillInputs(curCol[colTarget]);cErr.textContent='';}if(id==='popCfg'){cfgTa.value=cfgText();cfgMsg.textContent='';}}};});
+document.querySelectorAll('[data-pop]').forEach(b=>{b.onclick=()=>{const id=b.dataset.pop,p=pops[id],was=p.style.display==='block';closePops();if(!was){p.style.display='block';b.classList.add('on');if(id==='popCol'){fillInputs(curCol[colTarget]);cErr.textContent='';}if(id==='popCfg'){cfgTa.value=cfgText();cfgMsg.textContent='';}if(id==='popLoc')gOpen();if(id==='popSun')sunUI();}};});
 document.querySelectorAll('.pclose').forEach(b=>{b.onclick=closePops;});
 const tIn=document.getElementById('tileIn');let target='floor';
 document.querySelectorAll('[data-up]').forEach(b=>{b.onclick=()=>{target=b.dataset.up;tIn.value='';closePops();tIn.click();};});
@@ -341,11 +457,64 @@ cHex.oninput=()=>{let v=cHex.value.trim();if(v[0]!=='#')v='#'+v;if(/^#[0-9a-fA-F
 document.getElementById('cReset').onclick=()=>{setColor(colTarget,defCol[colTarget]);fillInputs(curCol[colTarget]);cErr.textContent='';};
 const texDefaults={floor:'textures/floor.jpg',counter:'textures/counter.jpg',splash:'textures/splash.jpg',bathA:'textures/bath.jpg',bathB:'textures/relief.jpg'};
 const CT=Object.assign({},texDefaults,CFG.textures||{});
-function cfgText(){return 'window.SPITI_CONFIG = '+JSON.stringify({textures:CT,colors:{wall:curCol.wall,door:curCol.door},lights:{dim:dimV,kelvin:kelV},view:{fisheye:Math.round(thD*100)/100}},null,2)+';\n';}
+function cfgText(){return 'window.SPITI_CONFIG = '+JSON.stringify({textures:CT,colors:{wall:curCol.wall,door:curCol.door},lights:{dim:dimV,kelvin:kelV},view:{fisheye:Math.round(thD*100)/100},site:{lat:site.lat,lon:site.lon,orientation:site.ori,overhang:site.ovh},sun:{weather:wx}},null,2)+';\n';}
 const cfgTa=document.getElementById('cfgTa'),cfgMsg=document.getElementById('cfgMsg');
 document.getElementById('cfgCopy').onclick=async()=>{try{await navigator.clipboard.writeText(cfgTa.value);cfgMsg.textContent='Αντιγράφηκε';}catch(e){cfgTa.focus();cfgTa.select();cfgMsg.textContent='Πάτα παρατεταμένα για αντιγραφή';}};
 const cc=CFG.colors||{};try{setColor('wall',cc.wall||defCol.wall);}catch(_){setColor('wall',defCol.wall);}try{setColor('door',cc.door||defCol.door);}catch(_){setColor('door',defCol.door);}
 const cl=CFG.lights||{};if(typeof cl.dim==='number'){dimV=Math.max(0,Math.min(100,Math.round(cl.dim)));dI.value=dimV;dO.textContent=dimV+'%';}if(typeof cl.kelvin==='number'){kelV=Math.max(2700,Math.min(6000,Math.round(cl.kelvin/100)*100));kI.value=kelV;kO.textContent=kelV+'K';}
+// ---- Πάνελ «Time»: ώρα, ημερομηνία, καιρός ----
+const $=id=>document.getElementById(id);
+const timeS=$('timeS'),timeO=$('timeO'),dateS=$('dateS'),dateO=$('dateO'),wxS=$('wxS'),wxO=$('wxO'),sunInfo=$('sunInfo'),playBtn=$('playBtn');
+const MON=['Ιαν','Φεβ','Μαρ','Απρ','Μαΐ','Ιουν','Ιουλ','Αυγ','Σεπ','Οκτ','Νοε','Δεκ'],CMP=['Β','ΒΑ','Α','ΝΑ','Ν','ΝΔ','Δ','ΒΔ'];
+const cmp=a=>CMP[Math.round((((a%360)+360)%360)/45)%8],hhmm=m=>String(Math.floor(m/60)%24).padStart(2,'0')+':'+String(Math.floor(m%60)).padStart(2,'0');
+function doyLabel(n){const dt=new Date(Date.UTC(YR,0,n));return dt.getUTCDate()+' '+MON[dt.getUTCMonth()];}
+function sunUI(){const s=sunSt||sunAt(tMin);timeS.value=Math.round(tMin/5)*5;timeO.textContent=hhmm(tMin)+' (UTC'+(s.tz>=0?'+':'')+s.tz+')';dateS.value=doy;dateO.textContent=doyLabel(doy);wxS.value=wx;
+wxO.textContent=wx<15?'Λιακάδα':wx<45?'Λίγα σύννεφα':wx<80?'Αρκετά σύννεφα':'Συννεφιά';
+let rise=null,set=null,pe=sunAt(0).el;for(let m=5;m<1440;m+=5){const e=sunAt(m).el;if(pe<-0.83&&e>=-0.83)rise=m;if(pe>=-0.83&&e<-0.83)set=m;pe=e;}
+sunInfo.textContent=(s.el>0?'Ο ήλιος είναι '+Math.round(s.el)+'° πάνω από τον ορίζοντα, προς '+cmp(s.az)+' ('+Math.round(s.az)+'°).':'Ο ήλιος είναι κάτω από τον ορίζοντα.')+(rise!=null&&set!=null?' Ανατολή '+hhmm(rise)+' · Δύση '+hhmm(set)+'.':'');}
+function setPlay(p){playing=p;playBtn.classList.toggle('on',p);playBtn.innerHTML=p?'<i class="ti ti-player-pause"></i> Παύση':'<i class="ti ti-player-play"></i> Κίνηση ήλιου';}
+timeS.oninput=()=>{setPlay(false);tMin=+timeS.value;update();sunUI();};
+dateS.oninput=()=>{doy=+dateS.value;update();sunUI();};
+wxS.oninput=()=>{wx=+wxS.value;update();sunUI();};
+playBtn.onclick=()=>setPlay(!playing);
+$('nowBtn').onclick=()=>{setPlay(false);const n=new Date();doy=Math.min(365,doyOf(n));tMin=((n.getUTCHours()*60+n.getUTCMinutes()+60*tzOf())%1440+1440)%1440;update();sunUI();};
+// ---- Πάνελ «Location»: υδρόγειος, συντεταγμένες, προσανατολισμός ----
+const latI=$('latI'),lonI=$('lonI'),oriS=$('oriS'),oriO=$('oriO'),ovhI=$('ovhI'),gcv=$('globe');
+const EARTH='https://cdn.jsdelivr.net/npm/three-globe@2.31.0/example/img/earth-blue-marble.jpg';
+function oriUI(){oriS.value=site.ori;oriO.textContent=site.ori+'° '+cmp(site.ori);ovhI.checked=site.ovh;latI.value=site.lat;lonI.value=site.lon;}
+function setSite(la,lo,focus){if(!isFinite(la)||!isFinite(lo))return;site.lat=+clamp(la,-89.9,89.9).toFixed(4);site.lon=+(((lo+540)%360)-180).toFixed(4);oriUI();if(G){if(focus)gFocus();gDraw();}update();sunUI();}
+oriS.oninput=()=>{site.ori=+oriS.value;oriUI();update();sunUI();};
+ovhI.onchange=()=>{site.ovh=ovhI.checked;ovh.forEach(o=>{o.visible=site.ovh;});update();};
+[latI,lonI].forEach(i=>{i.onchange=()=>setSite(parseFloat(latI.value),parseFloat(lonI.value),true);});
+$('geoBtn').onclick=()=>{if(!navigator.geolocation){msg('Ο browser δεν δίνει τοποθεσία');return;}navigator.geolocation.getCurrentPosition(p=>setSite(p.coords.latitude,p.coords.longitude,true),()=>msg('Δεν δόθηκε η τοποθεσία'),{timeout:10000});};
+let G=null;
+function ll2v(la,lo){const th=(90-la)*DEG,ph=(lo+180)*DEG;return new THREE.Vector3(-Math.cos(ph)*Math.sin(th),Math.cos(th),Math.sin(ph)*Math.sin(th));}
+function gInit(){const r=new THREE.WebGLRenderer({canvas:gcv,antialias:true,alpha:true});r.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+const sc=new THREE.Scene(),cm=new THREE.PerspectiveCamera(30,1,0.01,50),grp=new THREE.Group();sc.add(grp);
+const sph=new THREE.Mesh(new THREE.SphereGeometry(1,128,96),new THREE.MeshBasicMaterial({color:0x2d4f80}));grp.add(sph);
+new THREE.TextureLoader().load(EARTH,t=>{t.anisotropy=r.capabilities.getMaxAnisotropy();sph.material.map=t;sph.material.color.set(0xffffff);sph.material.needsUpdate=true;gDraw();},undefined,()=>msg('Δεν φόρτωσε ο χάρτης της Γης'));
+const lm=new THREE.LineBasicMaterial({color:0xffffff,transparent:true,opacity:0.14});
+for(let la=-60;la<=60;la+=30){const p=[];for(let lo=-180;lo<=180;lo+=4)p.push(ll2v(la,lo).multiplyScalar(1.001));grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(p),lm));}
+for(let lo=-180;lo<180;lo+=30){const p=[];for(let la=-90;la<=90;la+=4)p.push(ll2v(la,lo).multiplyScalar(1.001));grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(p),lm));}
+const pin=new THREE.Group();pin.add(new THREE.Mesh(new THREE.SphereGeometry(1,16,12),new THREE.MeshBasicMaterial({color:0xD85A30})));
+pin.add(new THREE.Mesh(new THREE.RingGeometry(1.7,2.4,32),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.9,side:THREE.DoubleSide})));grp.add(pin);
+G={r:r,sc:sc,cm:cm,grp:grp,sph:sph,pin:pin,dist:3.6};
+const pts=new Map();let down=null,pinch=0;const pd=()=>{const v=[...pts.values()];return Math.hypot(v[0][0]-v[1][0],v[0][1]-v[1][1]);};
+gcv.addEventListener('pointerdown',e=>{try{gcv.setPointerCapture(e.pointerId);}catch(_){}pts.set(e.pointerId,[e.clientX,e.clientY]);if(pts.size===1)down={m:0};else{down=null;pinch=pd();}});
+gcv.addEventListener('pointermove',e=>{const o=pts.get(e.pointerId);if(!o)return;const dx=e.clientX-o[0],dy=e.clientY-o[1];pts.set(e.pointerId,[e.clientX,e.clientY]);
+if(pts.size===1&&down){down.m+=Math.abs(dx)+Math.abs(dy);const k=0.0045*(G.dist-1)/2.6;G.grp.rotation.y+=dx*k;G.grp.rotation.x=clamp(G.grp.rotation.x+dy*k,-1.5,1.5);gDraw();}
+else if(pts.size===2){const d=pd();if(pinch&&d>0)G.dist=clamp(G.dist*pinch/d,1.06,4.5);pinch=d;gDraw();}});
+const gUp=e=>{if(!pts.has(e.pointerId))return;if(down&&down.m<6&&pts.size===1&&e.type==='pointerup')gPick(e);pts.delete(e.pointerId);if(pts.size<2)pinch=0;if(!pts.size)down=null;};
+gcv.addEventListener('pointerup',gUp);gcv.addEventListener('pointercancel',gUp);
+gcv.addEventListener('wheel',e=>{e.preventDefault();G.dist=clamp(G.dist*Math.exp(e.deltaY*0.0012),1.06,4.5);gDraw();},{passive:false});}
+function gFocus(){const p=ll2v(site.lat,site.lon);G.grp.rotation.set(site.lat*DEG,-Math.atan2(p.x,p.z),0);}
+function gPick(e){const r=gcv.getBoundingClientRect(),v=new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),rc=new THREE.Raycaster();rc.setFromCamera(v,G.cm);const h=rc.intersectObject(G.sph);if(!h.length)return;
+const p=G.grp.worldToLocal(h[0].point.clone()).normalize();setSite(90-Math.acos(clamp(p.y,-1,1))/DEG,Math.atan2(p.z,-p.x)/DEG-180,false);msg('Νέα τοποθεσία');}
+function gDraw(){if(!G)return;const w=gcv.clientWidth||276;if(G.r.domElement.width!==Math.round(w*G.r.getPixelRatio()))G.r.setSize(w,w,false);
+G.cm.position.set(0,0,G.dist);G.cm.lookAt(0,0,0);G.grp.updateMatrixWorld(true);const p=ll2v(site.lat,site.lon);G.pin.position.copy(p);G.pin.lookAt(G.grp.localToWorld(p.clone().multiplyScalar(2)));G.pin.scale.setScalar(0.0065*G.dist);G.r.render(G.sc,G.cm);}
+function gOpen(){if(!G)gInit();oriUI();gFocus();gDraw();}
+{const cs=CFG.site||{};if(isFinite(cs.lat)&&isFinite(cs.lon)){site.lat=+cs.lat;site.lon=+cs.lon;}if(isFinite(cs.orientation))site.ori=Math.round(((+cs.orientation%360)+360)%360);site.ovh=!!cs.overhang;ovh.forEach(o=>{o.visible=site.ovh;});
+const cw=CFG.sun||{};if(isFinite(cw.weather))wx=clamp(Math.round(+cw.weather),0,100);oriUI();}
 Object.keys(CT).forEach(k=>{if(!CT[k])return;loadImg(CT[k]).then(img=>{try{if(k==='floor')applyPhoto(img,true);else if(slabs[k])applySlab(img,k,true);}catch(_){}}).catch(()=>{});});
 const keys={},km={ArrowUp:'f',w:'f',W:'f',ArrowDown:'b',s:'b',S:'b',ArrowLeft:'l',a:'l',A:'l',ArrowRight:'r',d:'r',D:'r'};
 let px=3.86,pz=8.9,yaw=0,pitch=0,topView=false;
@@ -397,10 +566,11 @@ function loop(t){const dt=Math.min((t-last)/1000,0.05);last=t;
 if(keys.l)yaw+=1.8*dt;if(keys.r)yaw-=1.8*dt;
 const v=(keys.f?1:0)-(keys.b?1:0);if(v){const sp=1.5*dt*v,nx=px-Math.sin(yaw)*sp,nz=pz-Math.cos(yaw)*sp;if(free(nx,pz))px=nx;if(free(px,nz))pz=nz;}
 if(touring)yaw=baseYaw+0.85*Math.sin((t-tourT0)/1000*0.6);
+if(playing){tMin=(tMin+dt*80)%1440;update();if(pops.popSun.style.display==='block')sunUI();}
 if(t>msgT){const rn=roomAt(px,pz);if(rn&&info.textContent!==rn)info.textContent=rn;}
 const wantF=fish&&!topView;if(wantF!==fovState){fovState=wantF;setFov();}
 if(topView){const ar=cam.aspect,hgt=ar<1?16:12;cam.position.set(5.485,hgt,4.3);cam.rotation.set(-Math.PI/2,0,0);}else{cam.position.set(px,1.6,pz);cam.rotation.set(pitch,yaw,0);}
-ceil.visible=!topView;labels.forEach(l=>{l.visible=topView;});mk.visible=topView;mk.position.set(px,3,pz);mk.rotation.y=yaw;
+ceil.visible=!topView;labels.forEach(l=>{l.visible=topView;});compass.visible=topView;compass.rotation.y=site.ori*DEG;if(cam.aspect>=1)compass.position.set(12.4,3.2,0.6);else compass.position.set(8.9,3.2,-2.6);mk.visible=topView;mk.position.set(px,3,pz);mk.rotation.y=yaw;
 if(fovState){R.setRenderTarget(rt);R.render(S,cam);R.setRenderTarget(null);R.render(fq,fcam);}else{R.render(S,cam);}
 requestAnimationFrame(loop);}
 requestAnimationFrame(loop);
