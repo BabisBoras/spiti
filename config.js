@@ -11,7 +11,13 @@ window.SPITI_CONFIG = {
     "door": "#a19e97"
   },
   "lights": {
-    "dim": 80,
-    "kelvin": 3000
+    "dim": 90,
+    "kelvin": 4000
+  },
+  "site": {
+    "lat": 40.4114,
+    "lon": 22.5811,
+    "orientation": 180,
+    "overhang": false
   }
 };

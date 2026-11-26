@@ -71,6 +71,7 @@ input[type=number],#cHex{font:inherit;font-size:13px;padding:6px;border:1px soli
 <div id="fishBox"><label class="row" for="fishS">Ένταση fish-eye <span id="fishO">143°</span></label><input type="range" id="fishS" min="0.8" max="1.45" step="0.01" value="1.25"></div>
 <div class="pop" id="popLight">
 <div class="ph"><h3>Φωτισμός</h3><button class="x pclose" aria-label="Κλείσιμο"><i class="ti ti-x"></i></button></div>
+<div class="crow" style="margin:0 0 6px;"><button class="tb on" id="lightBtn" aria-pressed="true"><i class="ti ti-bulb"></i> Ανοιχτά</button><span class="note" style="margin:0;">Κλείνουν τη μέρα και ανοίγουν το βράδυ μόνα τους.</span></div>
 <label class="row" for="dim">Φωτεινότητα <span id="dimO">80%</span></label><input type="range" id="dim" min="0" max="100" step="1" value="80">
 <label class="row" for="kel">Θερμότητα <span id="kelO">3000K</span></label><input type="range" id="kel" min="2700" max="6000" step="100" value="3000">
 </div>
@@ -380,8 +381,12 @@ const el=Math.asin(clamp(Math.sin(la)*Math.sin(de)+Math.cos(la)*Math.cos(de)*Mat
 const az=Math.atan2(Math.sin(ha),Math.cos(ha)*Math.sin(la)-Math.tan(de)*Math.cos(la))+Math.PI;
 return {el:el/DEG,az:(az/DEG+360)%360,tz:tz};}
 const SKYD=new THREE.Color(0xc4d8ee),SKYO=new THREE.Color(0xd0d3d7),SKYT=new THREE.Color(0xe9b48a),SKYN=new THREE.Color(0x0e1118),sunDir=new THREE.Vector3();
-function update(){const d=dimV/100,col=kelvin(kelV),lc=WHT.clone().lerp(col,0.8);
-const sp=sunAt(tMin);sunSt=sp;const el=sp.el,cl=wx/100;
+// Φώτα on/off: αλλάζουν αυτόματα μόνο όταν η ώρα περνά από μέρα σε νύχτα (ή ανάποδα), ώστε το χειροκίνητο on/off να κρατάει μέχρι την επόμενη αλλαγή.
+let lightsOn=true,lastDark=null;
+function lightUI(){const b=document.getElementById('lightBtn');b.classList.toggle('on',lightsOn);b.setAttribute('aria-pressed',lightsOn);b.innerHTML=lightsOn?'<i class="ti ti-bulb"></i> Ανοιχτά':'<i class="ti ti-bulb-off"></i> Κλειστά';}
+function update(){const sp=sunAt(tMin);sunSt=sp;const el=sp.el,cl=wx/100;
+const dark=el<2;if(dark!==lastDark){lastDark=dark;lightsOn=dark;lightUI();}
+const d=lightsOn?dimV/100:0,col=kelvin(kelV),lc=WHT.clone().lerp(col,0.8);
 const dayF=sstep(-7,5,el),up=sstep(-0.5,2.5,el);
 const sunI=1.45*up*Math.pow(1-cl,1.6)*(0.35+0.65*sstep(0,30,el));
 const sunC=kelvin(1900+3700*sstep(0,40,el)).lerp(WHT,0.15);
@@ -406,7 +411,8 @@ nb.innerHTML=night?'<i class="ti ti-sun"></i>':'<i class="ti ti-moon"></i>';nb.s
 const nb=document.getElementById('night');
 nb.onclick=()=>{if(!night){prevT=tMin;tMin=22*60;}else{tMin=(prevT!=null&&sunAt(prevT).el>2)?prevT:13*60;}update();sunUI();};
 const dI=document.getElementById('dim'),kI=document.getElementById('kel'),dO=document.getElementById('dimO'),kO=document.getElementById('kelO');
-dI.oninput=()=>{dimV=Math.round(+dI.value);dO.textContent=dimV+'%';update();};kI.oninput=()=>{kelV=Math.round(+kI.value);kO.textContent=kelV+'K';update();};
+dI.oninput=()=>{dimV=Math.round(+dI.value);dO.textContent=dimV+'%';if(!lightsOn){lightsOn=true;lightUI();}update();};
+document.getElementById('lightBtn').onclick=()=>{lightsOn=!lightsOn;lightUI();update();};kI.oninput=()=>{kelV=Math.round(+kI.value);kO.textContent=kelV+'K';update();};
 const labels=[];
 function label(t,x,z){const c=document.createElement('canvas');c.width=320;c.height=64;const g=c.getContext('2d');g.fillStyle='rgba(255,255,255,0.9)';g.fillRect(8,8,304,48);g.fillStyle='#2C2C2A';g.font='500 28px sans-serif';g.textAlign='center';g.textBaseline='middle';g.fillText(t,160,33);const s=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(c),depthTest:false}));s.scale.set(2.2,0.44,1);s.position.set(x,3.2,z);s.visible=false;S.add(s);labels.push(s);}
 rooms.forEach(r=>{const q=r[1][0];label(r[0],(q[0]+q[2])/2,(q[1]+q[3])/2);});
@@ -477,7 +483,9 @@ timeS.oninput=()=>{setPlay(false);tMin=+timeS.value;update();sunUI();};
 dateS.oninput=()=>{doy=+dateS.value;update();sunUI();};
 wxS.oninput=()=>{wx=+wxS.value;update();sunUI();};
 playBtn.onclick=()=>setPlay(!playing);
-$('nowBtn').onclick=()=>{setPlay(false);const n=new Date();doy=Math.min(365,doyOf(n));tMin=((n.getUTCHours()*60+n.getUTCMinutes()+60*tzOf())%1440+1440)%1440;update();sunUI();};
+// Τρέχουσα ημερομηνία και ώρα στη ζώνη ώρας του σπιτιού.
+function setNow(){const n=new Date();doy=Math.min(365,doyOf(n));const loc=new Date(n.getTime()+tzOf()*3600e3);doy=Math.min(365,doyOf(loc));tMin=loc.getUTCHours()*60+loc.getUTCMinutes();}
+$('nowBtn').onclick=()=>{setPlay(false);setNow();update();sunUI();};
 // ---- Πάνελ «Location»: υδρόγειος, συντεταγμένες, προσανατολισμός ----
 const latI=$('latI'),lonI=$('lonI'),oriS=$('oriS'),oriO=$('oriO'),ovhI=$('ovhI'),gcv=$('globe');
 const EARTH='https://cdn.jsdelivr.net/npm/three-globe@2.31.0/example/img/earth-blue-marble.jpg';
@@ -514,7 +522,7 @@ function gDraw(){if(!G)return;const w=gcv.clientWidth||276;if(G.r.domElement.wid
 G.cm.position.set(0,0,G.dist);G.cm.lookAt(0,0,0);G.grp.updateMatrixWorld(true);const p=ll2v(site.lat,site.lon);G.pin.position.copy(p);G.pin.lookAt(G.grp.localToWorld(p.clone().multiplyScalar(2)));G.pin.scale.setScalar(0.0065*G.dist);G.r.render(G.sc,G.cm);}
 function gOpen(){if(!G)gInit();oriUI();gFocus();gDraw();}
 {const cs=CFG.site||{};if(isFinite(cs.lat)&&isFinite(cs.lon)){site.lat=+cs.lat;site.lon=+cs.lon;}if(isFinite(cs.orientation))site.ori=Math.round(((+cs.orientation%360)+360)%360);site.ovh=!!cs.overhang;ovh.forEach(o=>{o.visible=site.ovh;});
-const cw=CFG.sun||{};if(isFinite(cw.weather))wx=clamp(Math.round(+cw.weather),0,100);oriUI();}
+const cw=CFG.sun||{};if(isFinite(cw.weather))wx=clamp(Math.round(+cw.weather),0,100);oriUI();setNow();}
 Object.keys(CT).forEach(k=>{if(!CT[k])return;loadImg(CT[k]).then(img=>{try{if(k==='floor')applyPhoto(img,true);else if(slabs[k])applySlab(img,k,true);}catch(_){}}).catch(()=>{});});
 const keys={},km={ArrowUp:'f',w:'f',W:'f',ArrowDown:'b',s:'b',S:'b',ArrowLeft:'l',a:'l',A:'l',ArrowRight:'r',d:'r',D:'r'};
 let px=3.86,pz=8.9,yaw=0,pitch=0,topView=false;
