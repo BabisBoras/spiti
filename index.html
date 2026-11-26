@@ -41,6 +41,17 @@ input[type=number],#cHex{font:inherit;font-size:13px;padding:6px;border:1px soli
 #globe{display:block;width:100%;aspect-ratio:1;border-radius:12px;background:radial-gradient(circle at 50% 45%,#22355a 0%,#0c1424 70%);touch-action:none;cursor:grab;}
 #latI,#lonI{width:84px;}
 .chk{display:flex;gap:8px;align-items:center;margin-top:10px;font-size:13px;}
+/* Σύρσιμο μπάρας: κρύβεται το μενού, κλειδώνει η οθόνη και πάνω μένει μόνο μια λεπτή μπάρα. */
+.pop input[type=range],#fishBox input[type=range]{touch-action:none;}
+#scrub{position:fixed;inset:0;z-index:20;display:none;touch-action:none;cursor:ew-resize;}
+#scrubBar{position:absolute;top:calc(10px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);width:min(520px,calc(100vw - 32px));padding:7px 12px 10px;border-radius:12px;background:rgba(255,255,255,0.8);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);box-sizing:border-box;font-size:12px;opacity:0;transition:opacity 0.15s;pointer-events:none;}
+body.scrubbing #scrubBar{opacity:1;}
+#sbHead{display:flex;justify-content:space-between;gap:10px;color:#6b6760;margin-bottom:7px;}
+#sbVal{color:#2c2c2a;font-weight:600;white-space:nowrap;}
+#sbTrack{position:relative;height:4px;border-radius:2px;background:rgba(44,44,42,0.18);}
+#sbFill{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:#8a7d6b;}
+#sbKnob{position:absolute;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,0.35);}
+body.scrubbing .pop,body.scrubbing #fishBox,body.scrubbing #rail,body.scrubbing #pad,body.scrubbing #hint,body.scrubbing #info{opacity:0 !important;pointer-events:none;transition:opacity 0.15s;}
 </style>
 <script>window.onerror=function(m,s,l){var i=document.getElementById('info');if(i)i.textContent='Σφάλμα: '+m+' (γραμμή '+l+')';};</script>
 <script src="config.js"></script>
@@ -119,6 +130,7 @@ input[type=number],#cHex{font:inherit;font-size:13px;padding:6px;border:1px soli
 <div class="crow"><button class="tb" id="playBtn"><i class="ti ti-player-play"></i> Κίνηση ήλιου</button><button class="tb" id="nowBtn"><i class="ti ti-clock"></i> Τώρα</button></div>
 <p class="note" id="sunInfo"></p>
 </div>
+<div id="scrub"><div id="scrubBar"><div id="sbHead"><span id="sbLab"></span><span id="sbVal"></span></div><div id="sbTrack"><div id="sbFill"></div><div id="sbKnob"></div></div></div></div>
 <input id="tileIn" type="file" accept="image/*" hidden>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/lights/RectAreaLightUniformsLib.js"></script>
@@ -541,6 +553,22 @@ function gOpen(){if(!G)gInit();oriUI();gFocus();gDraw();}
 const cw=CFG.sun||{};if(isFinite(cw.weather))wx=clamp(Math.round(+cw.weather),0,100);
 const cd=CFG.daylight||{};if(isFinite(cd.strength))dlS=clamp(Math.round(+cd.strength/5)*5,0,250);if(isFinite(cd.depth))dlD=clamp(Math.round(+cd.depth*10)/10,0.5,8);dlUI();oriUI();setNow();}
 Object.keys(CT).forEach(k=>{if(!CT[k])return;loadImg(CT[k]).then(img=>{try{if(k==='floor')applyPhoto(img,true);else if(slabs[k])applySlab(img,k,true);}catch(_){}}).catch(()=>{});});
+// ---- Σύρσιμο μπάρας σε μενού: το μενού κρύβεται για να φαίνεται live η αλλαγή, η οθόνη κλειδώνει,
+// και μια λεπτή μπάρα στο πάνω μέρος ακολουθεί την οριζόντια κίνηση. Ένα απλό πάτημα δουλεύει όπως πριν.
+const scrubEl=$('scrub'),sbLab=$('sbLab'),sbVal=$('sbVal'),sbFill=$('sbFill'),sbKnob=$('sbKnob'),sbTrack=$('sbTrack');let sc=null;
+function rngSnap(r,v){const mn=+r.min,mx=+r.max,st=+r.step||1;return clamp(Math.round((v-mn)/st)*st+mn,mn,mx);}
+function rngSet(r,v){v=rngSnap(r,v);if(Math.abs(+r.value-v)>1e-9){r.value=v;r.dispatchEvent(new Event('input',{bubbles:true}));}}
+function scrubShow(){const r=sc.r,mn=+r.min,mx=+r.max,f=clamp((+r.value-mn)/(mx-mn),0,1),l=document.querySelector('label[for="'+r.id+'"]'),sp=l&&l.querySelector('span');
+sbLab.textContent=l?(l.firstChild.textContent||'').trim():'';sbVal.textContent=sp?sp.textContent:r.value;sbFill.style.width=(f*100)+'%';sbKnob.style.left=(f*100)+'%';}
+document.querySelectorAll('.pop input[type=range],#fishBox input[type=range]').forEach(r=>{r.addEventListener('pointerdown',e=>{if(e.button>0||sc)return;e.preventDefault();
+sc={r:r,id:e.pointerId,x0:e.clientX,v0:+r.value,moved:false,rect:r.getBoundingClientRect()};scrubEl.style.display='block';try{scrubEl.setPointerCapture(e.pointerId);}catch(_){}});});
+scrubEl.addEventListener('pointermove',e=>{if(!sc||e.pointerId!==sc.id)return;
+if(!sc.moved){if(Math.abs(e.clientX-sc.x0)<4)return;sc.moved=true;sc.x0=e.clientX;rngSet(sc.r,sc.v0);sc.v0=+sc.r.value;document.body.classList.add('scrubbing');scrubShow();return;}
+const r=sc.r,w=sbTrack.clientWidth||300;rngSet(r,sc.v0+(e.clientX-sc.x0)/w*(+r.max-+r.min));scrubShow();});
+function scrubEnd(e){if(!sc||e.pointerId!==sc.id)return;const r=sc.r;
+if(!sc.moved&&e.type==='pointerup'){const q=sc.rect;rngSet(r,+r.min+(e.clientX-q.left)/q.width*(+r.max-+r.min));}
+r.dispatchEvent(new Event('change',{bubbles:true}));document.body.classList.remove('scrubbing');scrubEl.style.display='none';sc=null;}
+scrubEl.addEventListener('pointerup',scrubEnd);scrubEl.addEventListener('pointercancel',scrubEnd);
 const keys={},km={ArrowUp:'f',w:'f',W:'f',ArrowDown:'b',s:'b',S:'b',ArrowLeft:'l',a:'l',A:'l',ArrowRight:'r',d:'r',D:'r'};
 let px=3.86,pz=8.9,yaw=0,pitch=0,topView=false;
 const navBtn=document.getElementById('navBtn'),tourBtn=document.getElementById('tourBtn'),fsBtn=document.getElementById('fsBtn'),fishBtn=document.getElementById('fishBtn');
