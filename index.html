@@ -113,6 +113,9 @@ input[type=number],#cHex{font:inherit;font-size:13px;padding:6px;border:1px soli
 <label class="row" for="timeS">Ώρα <span id="timeO">12:00</span></label><input type="range" id="timeS" min="0" max="1435" step="5" value="720">
 <label class="row" for="dateS">Ημερομηνία <span id="dateO">—</span></label><input type="range" id="dateS" min="1" max="365" step="1" value="172">
 <label class="row" for="wxS">Καιρός <span id="wxO">Λιακάδα</span></label><input type="range" id="wxS" min="0" max="100" step="1" value="0">
+<label class="row" for="dlS">Φως από έξω <span id="dlSO">100%</span></label><input type="range" id="dlS" min="0" max="250" step="5" value="100">
+<label class="row" for="dlD">Βάθος διάχυσης <span id="dlDO">2.1 m</span></label><input type="range" id="dlD" min="0.5" max="8" step="0.1" value="2.1">
+<p class="note">Πόσο φως ουρανού και ήλιου διαχέεται από τα ανοίγματα, και σε πόση απόσταση από το άνοιγμα πέφτει στο μισό.</p>
 <div class="crow"><button class="tb" id="playBtn"><i class="ti ti-player-play"></i> Κίνηση ήλιου</button><button class="tb" id="nowBtn"><i class="ti ti-clock"></i> Τώρα</button></div>
 <p class="note" id="sunInfo"></p>
 </div>
@@ -143,12 +146,12 @@ const ZR=[
 const WINS=[
 {s:[0.88,.62,3.28,.62],z:0,n:[0,-1],y1:0,y2:2.4,b:1.38},{s:[4.60,.62,6.30,.62],z:1,n:[0,-1],y1:0,y2:2.2,b:1.38},{s:[7.85,.62,9.55,.62],z:2,n:[0,-1],y1:0,y2:2.2,b:1.38},
 {s:[.5,7.45,1.3,7.45],z:0,n:[0,1],y1:.9,y2:2.2,b:0},{s:[7.54,6.95,7.54,8.25],z:3,n:[1,0],y1:0,y2:2.2,b:1.0}];
-const RAU={raWs:{value:WINS.map(w=>new THREE.Vector4(w.s[0],w.s[1],w.s[2],w.s[3]))},raWc:{value:WINS.map(()=>new THREE.Vector3())},raOut:{value:new THREE.Vector3()}};
+const RAU={raWs:{value:WINS.map(w=>new THREE.Vector4(w.s[0],w.s[1],w.s[2],w.s[3]))},raWc:{value:WINS.map(()=>new THREE.Vector3())},raOut:{value:new THREE.Vector3()},raFall:{value:0.22}};
 const strips=[];let raFrag=null;const ZV=['a.x','a.y','a.z','b.x','b.y','b.z'];
-function raGLSL(){const f=v=>(+v).toFixed(3),N=WINS.length;let g='varying vec3 vRaW;\nuniform vec4 raWs['+N+'];\nuniform vec3 raWc['+N+'];\nuniform vec3 raOut;\nfloat raB(vec2 p,vec4 r){vec2 d=max(r.xy-p,p-r.zw);return 1.0-smoothstep(0.02,0.12,length(max(d,vec2(0.0))));}\n';
+function raGLSL(){const f=v=>(+v).toFixed(3),N=WINS.length;let g='varying vec3 vRaW;\nuniform vec4 raWs['+N+'];\nuniform vec3 raWc['+N+'];\nuniform vec3 raOut;\nuniform float raFall;\nfloat raB(vec2 p,vec4 r){vec2 d=max(r.xy-p,p-r.zw);return 1.0-smoothstep(0.02,0.12,length(max(d,vec2(0.0))));}\n';
 ZR.forEach((rs,k)=>{g+='float raZ'+k+'(vec2 p){float m=0.0;'+rs.map(r=>'m=max(m,raB(p,vec4('+r.map(f).join(',')+')));').join('')+'return m;}\n';});
 g+='float raLM(int i,vec3 a,vec3 b){'+strips.map((s,i)=>'if(i=='+i+')return '+ZV[s.z]+';').join('')+'return 1.0;}\n';
-g+='vec3 raAmb(vec2 p,vec3 a,vec3 b){vec3 c=vec3(0.0);vec2 ab;float t,d;'+WINS.map((w,k)=>'ab=raWs['+k+'].zw-raWs['+k+'].xy;t=clamp(dot(p-raWs['+k+'].xy,ab)/max(dot(ab,ab),1e-4),0.0,1.0);d=length(p-raWs['+k+'].xy-ab*t);c+=raWc['+k+']*'+ZV[w.z]+'/(1.0+0.22*d*d);').join('')+'float ins=max(max(a.x,a.y),max(max(a.z,b.x),max(b.y,b.z)));return c+raOut*(1.0-ins);}\n';return g;}
+g+='vec3 raAmb(vec2 p,vec3 a,vec3 b){vec3 c=vec3(0.0);vec2 ab;float t,d;'+WINS.map((w,k)=>'ab=raWs['+k+'].zw-raWs['+k+'].xy;t=clamp(dot(p-raWs['+k+'].xy,ab)/max(dot(ab,ab),1e-4),0.0,1.0);d=length(p-raWs['+k+'].xy-ab*t);c+=raWc['+k+']*'+ZV[w.z]+'/(1.0+raFall*d*d);').join('')+'float ins=max(max(a.x,a.y),max(max(a.z,b.x),max(b.y,b.z)));return c+raOut*(1.0-ins);}\n';return g;}
 function raPatch(sh){Object.assign(sh.uniforms,RAU);if(!raFrag)raFrag=raGLSL();
 sh.vertexShader='varying vec3 vRaW;\n'+sh.vertexShader.replace('#include <worldpos_vertex>','#include <worldpos_vertex>\n\tvRaW=(modelMatrix*vec4(transformed,1.0)).xyz;');
 const lb=THREE.ShaderChunk.lights_fragment_begin.replace('RE_Direct_RectArea( rectAreaLight, geometry, material, reflectedLight );','raRL.directDiffuse=vec3(0.0);raRL.directSpecular=vec3(0.0);RE_Direct_RectArea( rectAreaLight, geometry, material, raRL );raK=raLM(UNROLLED_LOOP_INDEX,raMa,raMb);reflectedLight.directDiffuse+=raRL.directDiffuse*raK;reflectedLight.directSpecular+=raRL.directSpecular*raK;')
@@ -378,7 +381,7 @@ function kelvin(K){const t=K/100;let r,g,b;if(t<=66){r=255;g=99.4708025861*Math.
 let night=false,dimV=80,kelV=3000;const offC=new THREE.Color(0xd6d6d6),WHT=new THREE.Color(1,1,1);
 // ---- Ήλιος: θέση από γεωγραφικό πλάτος/μήκος, ημερομηνία και ώρα (αλγόριθμος NOAA) ----
 const DEG=Math.PI/180,clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),sstep=(a,b,v)=>{const t=clamp((v-a)/(b-a),0,1);return t*t*(3-2*t);};
-const site={lat:37.9838,lon:23.7275,ori:180,ovh:false};let tMin=720,doy=172,wx=0,sunSt=null,playing=false,prevT=null;
+const site={lat:37.9838,lon:23.7275,ori:180,ovh:false};let tMin=720,doy=172,wx=0,dlS=100,dlD=2.1,sunSt=null,playing=false,prevT=null;
 const YR=new Date().getFullYear(),doyOf=dt=>Math.round((Date.UTC(dt.getUTCFullYear(),dt.getUTCMonth(),dt.getUTCDate())-Date.UTC(dt.getUTCFullYear(),0,1))/864e5)+1;
 function lastSun(m){const d=new Date(Date.UTC(YR,m+1,0));d.setUTCDate(d.getUTCDate()-d.getUTCDay());return doyOf(d);}
 const DST=[lastSun(2),lastSun(9)];doy=Math.min(365,doyOf(new Date()));
@@ -410,8 +413,8 @@ sun.position.copy(sun.target.position).addScaledVector(sunDir,30);sun.intensity=
 // Φως ουρανού και αντανάκλαση του ήλιου από κάθε άνοιγμα προς το δωμάτιό του (έμμεσος φωτισμός).
 WINS.forEach((w,k)=>{const len=Math.hypot(w.s[2]-w.s[0],w.s[3]-w.s[1]),A=len*(w.y2-w.y1),ci=Math.max(0,sunDir.x*w.n[0]+sunDir.z*w.n[1]);let fr=0;
 if(ci>0.001&&sunDir.y>0){fr=1;if(w.b){const tp=sunDir.y/ci,top=w.y2,hi=site.ovh?Math.min(top,2.8-w.b*tp):top,lo=Math.max(0,1-w.b*tp);fr=clamp((hi-lo)/top,0,1);}}
-const sk=skyI*A*0.04,sb=sunI*A*ci*fr*0.022;RAU.raWc.value[k].set(skyC.r*sk+sunC.r*sb,skyC.g*sk+sunC.g*sb,skyC.b*sk+sunC.b*sb);});
-RAU.raOut.value.set(skyC.r,skyC.g,skyC.b).multiplyScalar(skyI*0.6);
+const sk=skyI*A*0.04*dlS/100,sb=sunI*A*ci*fr*0.022*dlS/100;RAU.raWc.value[k].set(skyC.r*sk+sunC.r*sb,skyC.g*sk+sunC.g*sb,skyC.b*sk+sunC.b*sb);});
+RAU.raFall.value=1/(dlD*dlD);RAU.raOut.value.set(skyC.r,skyC.g,skyC.b).multiplyScalar(skyI*0.6);
 hemi.color.copy(skyC).lerp(WHT,0.5);hemi.intensity=0.05+0.38*skyI;amb.intensity=0.03+0.09*d*(1-dayF)+0.04*dayF;
 S.background.copy(SKYN).lerp(skyC,dayF);mCeil.emissive.setRGB(1,1,1).multiplyScalar(0.1*skyI+0.18*d);
 spots.forEach(s=>{s.l.intensity=s.i*d;s.l.color.copy(lc);});strips.forEach(s=>{s.l.intensity=s.i*d;s.l.color.copy(lc);});
@@ -474,7 +477,7 @@ cHex.oninput=()=>{let v=cHex.value.trim();if(v[0]!=='#')v='#'+v;if(/^#[0-9a-fA-F
 document.getElementById('cReset').onclick=()=>{setColor(colTarget,defCol[colTarget]);fillInputs(curCol[colTarget]);cErr.textContent='';};
 const texDefaults={floor:'textures/floor.jpg',counter:'textures/counter.jpg',splash:'textures/splash.jpg',bathA:'textures/bath.jpg',bathB:'textures/relief.jpg'};
 const CT=Object.assign({},texDefaults,CFG.textures||{});
-function cfgText(){return 'window.SPITI_CONFIG = '+JSON.stringify({textures:CT,colors:{wall:curCol.wall,door:curCol.door},lights:{dim:dimV,kelvin:kelV},view:{fisheye:Math.round(thD*100)/100},site:{lat:site.lat,lon:site.lon,orientation:site.ori,overhang:site.ovh},sun:{weather:wx}},null,2)+';\n';}
+function cfgText(){return 'window.SPITI_CONFIG = '+JSON.stringify({textures:CT,colors:{wall:curCol.wall,door:curCol.door},lights:{dim:dimV,kelvin:kelV},view:{fisheye:Math.round(thD*100)/100},site:{lat:site.lat,lon:site.lon,orientation:site.ori,overhang:site.ovh},sun:{weather:wx},daylight:{strength:dlS,depth:dlD}},null,2)+';\n';}
 const cfgTa=document.getElementById('cfgTa'),cfgMsg=document.getElementById('cfgMsg');
 document.getElementById('cfgCopy').onclick=async()=>{try{await navigator.clipboard.writeText(cfgTa.value);cfgMsg.textContent='Αντιγράφηκε';}catch(e){cfgTa.focus();cfgTa.select();cfgMsg.textContent='Πάτα παρατεταμένα για αντιγραφή';}};
 const cc=CFG.colors||{};try{setColor('wall',cc.wall||defCol.wall);}catch(_){setColor('wall',defCol.wall);}try{setColor('door',cc.door||defCol.door);}catch(_){setColor('door',defCol.door);}
@@ -493,6 +496,8 @@ function setPlay(p){playing=p;playBtn.classList.toggle('on',p);playBtn.innerHTML
 timeS.oninput=()=>{setPlay(false);tMin=+timeS.value;update();sunUI();};
 dateS.oninput=()=>{doy=+dateS.value;update();sunUI();};
 wxS.oninput=()=>{wx=+wxS.value;update();sunUI();};
+const dlSI=$('dlS'),dlDI=$('dlD');function dlUI(){dlSI.value=dlS;dlDI.value=dlD;$('dlSO').textContent=dlS+'%';$('dlDO').textContent=dlD.toFixed(1)+' m';}
+dlSI.oninput=()=>{dlS=+dlSI.value;dlUI();update();};dlDI.oninput=()=>{dlD=+dlDI.value;dlUI();update();};
 playBtn.onclick=()=>setPlay(!playing);
 // Τρέχουσα ημερομηνία και ώρα στη ζώνη ώρας του σπιτιού.
 function setNow(){const n=new Date();doy=Math.min(365,doyOf(n));const loc=new Date(n.getTime()+tzOf()*3600e3);doy=Math.min(365,doyOf(loc));tMin=loc.getUTCHours()*60+loc.getUTCMinutes();}
@@ -533,7 +538,8 @@ function gDraw(){if(!G)return;const w=gcv.clientWidth||276;if(G.r.domElement.wid
 G.cm.position.set(0,0,G.dist);G.cm.lookAt(0,0,0);G.grp.updateMatrixWorld(true);const p=ll2v(site.lat,site.lon);G.pin.position.copy(p);G.pin.lookAt(G.grp.localToWorld(p.clone().multiplyScalar(2)));G.pin.scale.setScalar(0.0065*G.dist);G.r.render(G.sc,G.cm);}
 function gOpen(){if(!G)gInit();oriUI();gFocus();gDraw();}
 {const cs=CFG.site||{};if(isFinite(cs.lat)&&isFinite(cs.lon)){site.lat=+cs.lat;site.lon=+cs.lon;}if(isFinite(cs.orientation))site.ori=Math.round(((+cs.orientation%360)+360)%360);site.ovh=!!cs.overhang;ovh.forEach(o=>{o.visible=site.ovh;});
-const cw=CFG.sun||{};if(isFinite(cw.weather))wx=clamp(Math.round(+cw.weather),0,100);oriUI();setNow();}
+const cw=CFG.sun||{};if(isFinite(cw.weather))wx=clamp(Math.round(+cw.weather),0,100);
+const cd=CFG.daylight||{};if(isFinite(cd.strength))dlS=clamp(Math.round(+cd.strength/5)*5,0,250);if(isFinite(cd.depth))dlD=clamp(Math.round(+cd.depth*10)/10,0.5,8);dlUI();oriUI();setNow();}
 Object.keys(CT).forEach(k=>{if(!CT[k])return;loadImg(CT[k]).then(img=>{try{if(k==='floor')applyPhoto(img,true);else if(slabs[k])applySlab(img,k,true);}catch(_){}}).catch(()=>{});});
 const keys={},km={ArrowUp:'f',w:'f',W:'f',ArrowDown:'b',s:'b',S:'b',ArrowLeft:'l',a:'l',A:'l',ArrowRight:'r',d:'r',D:'r'};
 let px=3.86,pz=8.9,yaw=0,pitch=0,topView=false;

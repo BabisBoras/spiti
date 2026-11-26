@@ -19,5 +19,9 @@ window.SPITI_CONFIG = {
     "lon": 22.5811,
     "orientation": 180,
     "overhang": false
+  },
+  "daylight": {
+    "strength": 100,
+    "depth": 2.1
   }
 };
